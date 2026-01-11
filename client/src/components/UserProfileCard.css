@@ -1,0 +1,71 @@
+.user-profile-card {
+    background: linear-gradient(135deg, #2e3b4e, #242424);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    padding: 20px;
+    margin-top: 10px;
+    color: #f0f0f0;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+}
+
+.profile-header h3 {
+    margin: 0 0 10px 0;
+    font-size: 1.15rem;
+    color: #fff;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+.profile-narrative {
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: #d1d5db;
+    /* Lighter grey */
+    margin: 0 0 20px 0;
+    font-weight: 400;
+}
+
+.profile-dna {
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding-top: 16px;
+}
+
+.dna-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.tag-pill {
+    background: rgba(255, 255, 255, 0.1);
+    color: #e2e8f0;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.dna-dimensions {
+    display: grid;
+    gap: 8px;
+    font-size: 0.85rem;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 12px;
+    border-radius: 8px;
+}
+
+.dim-item {
+    display: flex;
+    justify-content: space-between;
+}
+
+.dim-item label {
+    color: #9ca3af;
+}
+
+.dim-item span {
+    color: #60a5fa;
+    /* Light blue accent */
+    font-weight: 600;
+}

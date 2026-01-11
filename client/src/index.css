@@ -1,0 +1,91 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    /* Neo-Glass Tech Dark Theme */
+    --background: 224 71% 4%;
+    /* #030712 */
+    --foreground: 210 40% 98%;
+    /* #f8fafc */
+
+    --card: 224 71% 4%;
+    /* Same as bg, rely on glass effects */
+    --card-foreground: 210 40% 98%;
+
+    --popover: 224 71% 4%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 244 87% 67%;
+    /* Indigo 500 */
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 199 89% 48%;
+    /* Sky 500 */
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 215 27.9% 16.9%;
+    /* Slate 900 */
+    --muted-foreground: 217.9 10.6% 64.9%;
+    /* Slate 400 */
+
+    --accent: 215 27.9% 16.9%;
+    /* Slate 900 */
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 215 27.9% 16.9%;
+    /* Slate 900 */
+    --input: 215 27.9% 16.9%;
+    --ring: 244 87% 67%;
+    /* Indigo 500 */
+
+    --radius: 0.75rem;
+  }
+
+  /* Sleek Scrollbar (Hidden/Minimal) */
+  ::-webkit-scrollbar {
+    width: 0px;
+    height: 0px;
+    display: none;
+    /* Hide default, will implement custom scroll area if needed */
+  }
+}
+
+@layer utilities {
+  .glass-panel {
+    @apply bg-white/5 backdrop-blur-xl border border-white/10 shadow-2xl;
+  }
+
+  .glass-button {
+    @apply bg-white/5 hover:bg-white/15 backdrop-blur-md border border-white/10 transition-all duration-300 active:scale-95;
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  }
+
+  .glass-button:hover {
+    box-shadow: 0 0 15px rgba(99, 102, 241, 0.3);
+  }
+
+  .text-glow {
+    text-shadow: 0 0 10px rgba(99, 102, 241, 0.5);
+  }
+}
+
+@layer base {
+  * {
+    border-color: hsl(var(--border));
+  }
+
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  ::selection {
+    background-color: hsl(var(--primary) / 0.2);
+  }
+}
