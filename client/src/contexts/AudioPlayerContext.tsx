@@ -1,17 +1,20 @@
-import React, { createContext, useContext, useEffect, useRef, useState, useCallback, type ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState, useCallback, useMemo, type ReactNode } from 'react';
 import { Howl } from 'howler';
 import type { Song } from '../types';
 import { api } from '../api';
 
+
+export type PlayMode = 'sequence' | 'loop' | 'one' | 'shuffle';
+
+// Context for stable state (updates infrequently)
 interface AudioPlayerContextType {
     currentSong: Song | null;
     isPlaying: boolean;
     queue: Song[];
     volume: number;
-    currentTime: number;
-    duration: number;
     currentPlaylistId: string | null;
     isStarring: boolean;
+    playMode: PlayMode;
     play: () => void;
     pause: () => void;
     playSong: (song: Song) => void;
@@ -22,16 +25,20 @@ interface AudioPlayerContextType {
     setVolume: (vol: number) => void;
     playAtIndex: (index: number) => void;
     toggleStar: () => Promise<void>;
+    togglePlayMode: () => void;
+}
+
+// Context for volatile state (updates 60fps)
+interface AudioProgressContextType {
+    currentTime: number;
+    duration: number;
 }
 
 const AudioPlayerContext = createContext<AudioPlayerContextType | undefined>(undefined);
+const AudioProgressContext = createContext<AudioProgressContextType | undefined>(undefined);
 
-// Helper to construct stream URL (Subsonic getStream)
+// Helper to construct stream URL
 const getStreamUrl = (id: string) => {
-    // In real Navidrome/Subsonic, we need auth params.
-    // However, our backend doesn't currently proxy stream (it proxies JSON).
-    // Strategy: We can configure a proxy endpoint in server.ts OR use direct Navidrome URL if we expose credentials (BAD).
-    // Better Strategy: Backend proxies stream -> /api/stream/:id
     return `/api/stream/${id}`;
 };
 
@@ -44,22 +51,24 @@ export const AudioPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     const [volume, setVolumeState] = useState(1.0);
     const [currentPlaylistId, setCurrentPlaylistId] = useState<string | null>(null);
     const [isStarring, setIsStarring] = useState(false);
+    const [playMode, setPlayMode] = useState<PlayMode>('loop');
 
     const howlRef = useRef<Howl | null>(null);
     const rafRef = useRef<number | null>(null);
-    // 使用 ref 存储音量，避免 loadAndPlay 依赖 volume state
     const volumeRef = useRef(volume);
-    // 追踪当前播放的歌曲 ID，避免 starred 属性变化导致重播
     const currentSongIdRef = useRef<string | null>(null);
+    const playModeRef = useRef(playMode);
 
     const currentSong = currentIndex >= 0 && currentIndex < queue.length ? queue[currentIndex] : null;
 
-    // 同步 volumeRef
     useEffect(() => {
         volumeRef.current = volume;
     }, [volume]);
 
-    // Cleanup on unmount
+    useEffect(() => {
+        playModeRef.current = playMode;
+    }, [playMode]);
+
     useEffect(() => {
         return () => {
             if (howlRef.current) {
@@ -71,7 +80,6 @@ export const AudioPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
         };
     }, []);
 
-    // Timer loop for progress
     const startTimer = useCallback(() => {
         if (rafRef.current) cancelAnimationFrame(rafRef.current);
         const loop = () => {
@@ -90,10 +98,33 @@ export const AudioPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
         }
     };
 
-    const next = useCallback(() => {
+    const next = useCallback((isAuto = false) => {
         setCurrentIndex(prev => {
-            if (prev + 1 < queue.length) return prev + 1;
-            return prev; // Or loop? For now stop at end
+            const queueLen = queue.length;
+            if (queueLen === 0) return -1;
+            const mode = playModeRef.current;
+
+            if (isAuto && mode === 'one') {
+                if (howlRef.current) {
+                    howlRef.current.seek(0);
+                    howlRef.current.play();
+                }
+                return prev;
+            }
+
+            if (mode === 'shuffle') {
+                const nextIdx = Math.floor(Math.random() * queueLen);
+                return nextIdx;
+            }
+
+            if (prev + 1 < queueLen) {
+                return prev + 1;
+            } else {
+                if (mode === 'loop') {
+                    return 0;
+                }
+                return prev;
+            }
         });
     }, [queue.length]);
 
@@ -106,9 +137,9 @@ export const AudioPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
 
         const sound = new Howl({
             src: [src],
-            html5: false, // Force Web Audio API for better control (crossfade potential)
-            format: ['mp3', 'flac', 'm4a'], // Hints
-            volume: volumeRef.current, // 使用 ref 避免依赖 volume state
+            html5: false,
+            format: ['mp3', 'flac', 'm4a'],
+            volume: volumeRef.current,
             autoplay: autoplay,
             onplay: () => {
                 setIsPlaying(true);
@@ -125,8 +156,7 @@ export const AudioPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
                 stopTimer();
             },
             onend: () => {
-                // Auto next
-                next();
+                next(true);
             },
             onloaderror: (_id, err) => {
                 console.error('Audio Load Error', err);
@@ -134,53 +164,61 @@ export const AudioPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
         });
 
         howlRef.current = sound;
-    }, [next, startTimer]); // 移除 volume 依赖
+    }, [next, startTimer]);
 
-    const play = () => {
+    const play = useCallback(() => {
         howlRef.current?.play();
-    };
+    }, []);
 
-    const pause = () => {
+    const pause = useCallback(() => {
         howlRef.current?.pause();
-    };
+    }, []);
 
-    const playSong = (song: Song) => {
+    const playSong = useCallback((song: Song) => {
         setQueue([song]);
         setCurrentIndex(0);
-        // Effect will trigger load
-    };
+    }, []);
 
-    const playPlaylist = (songs: Song[], playlistId?: string, startIndex = 0) => {
+    const playPlaylist = useCallback((songs: Song[], playlistId?: string, startIndex = 0) => {
         setQueue(songs);
         setCurrentIndex(startIndex);
         setCurrentPlaylistId(playlistId ?? null);
-        // Effect will trigger load
-    };
+    }, []);
 
     const prev = useCallback(() => {
         setCurrentIndex(prev => {
+            if (howlRef.current && howlRef.current.seek() > 3) {
+                howlRef.current.seek(0);
+                return prev;
+            }
+
             if (prev - 1 >= 0) return prev - 1;
+
+            if (playModeRef.current === 'loop' && queue.length > 0) {
+                return queue.length - 1;
+            }
+
             return 0;
         });
-    }, []);
+    }, [queue.length]);
 
-    const seek = (pos: number) => {
+    const seek = useCallback((pos: number) => {
         if (howlRef.current) {
             howlRef.current.seek(pos);
             setCurrentTime(pos);
         }
-    };
+    }, []);
 
-    const setVolume = (vol: number) => {
+    const setVolume = useCallback((vol: number) => {
         setVolumeState(vol);
         howlRef.current?.volume(vol);
-    };
+    }, []);
 
-    const playAtIndex = (index: number) => {
+    const playAtIndex = useCallback((index: number) => {
         if (index >= 0 && index < queue.length) {
             setCurrentIndex(index);
         }
-    };
+    }, [queue.length]);
 
     const toggleStar = useCallback(async () => {
         if (!currentSong || isStarring) return;
@@ -191,7 +229,6 @@ export const AudioPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
             } else {
                 await api.starSong(currentSong.id);
             }
-            // Update the song in queue
             setQueue(prev => prev.map(song =>
                 song.id === currentSong.id
                     ? { ...song, starred: !song.starred }
@@ -204,12 +241,20 @@ export const AudioPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
         }
     }, [currentSong, isStarring]);
 
-    // React to index change to play new song
-    // 只在歌曲 ID 变化时重新加载，避免 starred 属性变化导致重播
+    const togglePlayMode = useCallback(() => {
+        setPlayMode(prev => {
+            if (prev === 'loop') return 'shuffle';
+            if (prev === 'shuffle') return 'one';
+            if (prev === 'one') return 'sequence';
+            return 'loop';
+        });
+    }, []);
+
+    const handleNext = useCallback(() => next(false), [next]);
+
     useEffect(() => {
         if (currentIndex >= 0 && currentIndex < queue.length) {
             const song = queue[currentIndex];
-            // 只有歌曲 ID 变化才重新加载
             if (song.id !== currentSongIdRef.current) {
                 currentSongIdRef.current = song.id;
                 loadAndPlay(song, true);
@@ -217,28 +262,43 @@ export const AudioPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
         }
     }, [currentIndex, queue, loadAndPlay]);
 
+    // Memoize stable state to prevent re-renders when currentTime changes
+    const playerState = useMemo<AudioPlayerContextType>(() => ({
+        currentSong,
+        isPlaying,
+        queue,
+        volume,
+        currentPlaylistId,
+        isStarring,
+        playMode,
+        play,
+        pause,
+        playSong,
+        playPlaylist,
+        next: handleNext,
+        prev,
+        seek,
+        setVolume,
+        playAtIndex,
+        toggleStar,
+        togglePlayMode
+    }), [
+        currentSong, isPlaying, queue, volume, currentPlaylistId,
+        isStarring, playMode, play, pause, playSong, playPlaylist,
+        handleNext, prev, seek, setVolume, playAtIndex, toggleStar, togglePlayMode
+    ]);
+
+    // Memoize progress state (updates frequently)
+    const progressState = useMemo<AudioProgressContextType>(() => ({
+        currentTime,
+        duration
+    }), [currentTime, duration]);
+
     return (
-        <AudioPlayerContext.Provider value={{
-            currentSong,
-            isPlaying,
-            queue,
-            volume,
-            currentTime,
-            duration,
-            currentPlaylistId,
-            isStarring,
-            play,
-            pause,
-            playSong,
-            playPlaylist,
-            next,
-            prev,
-            seek,
-            setVolume,
-            playAtIndex,
-            toggleStar
-        }}>
-            {children}
+        <AudioPlayerContext.Provider value={playerState}>
+            <AudioProgressContext.Provider value={progressState}>
+                {children}
+            </AudioProgressContext.Provider>
         </AudioPlayerContext.Provider>
     );
 };
@@ -250,3 +310,12 @@ export const useAudioPlayer = () => {
     }
     return context;
 };
+
+export const useAudioProgress = () => {
+    const context = useContext(AudioProgressContext);
+    if (!context) {
+        throw new Error('useAudioProgress must be used within AudioPlayerProvider');
+    }
+    return context;
+};
+

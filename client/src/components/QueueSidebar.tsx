@@ -26,7 +26,7 @@ const itemVariants: Variants = {
 
 export const QueueSidebar: React.FC = () => {
     const {
-        currentSong, isPlaying, queue, playAtIndex
+        currentSong, isPlaying, queue, playAtIndex, currentPlaylistId
     } = useAudioPlayer();
 
     const formatTime = (secs: number) => {
@@ -52,10 +52,11 @@ export const QueueSidebar: React.FC = () => {
                 transition={{ duration: 0.3 }}
                 className="queue-header"
             >
-                <span className="queue-title">Play Queue ({queue.length})</span>
+                <span className="queue-title">播放列表 ({queue.length})</span>
             </motion.div>
             <ScrollArea className="queue-scroll">
                 <motion.div
+                    key={currentPlaylistId || 'default-queue'}
                     className="queue-list"
                     initial="hidden"
                     animate="visible"

@@ -4,10 +4,10 @@
 
 .global-player {
     height: 5rem;
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--card);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--border);
     box-shadow: var(--shadow-2xl);
     border-radius: var(--radius-full);
     display: flex;
@@ -22,7 +22,13 @@
 }
 
 .global-player:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--card);
+    border-color: var(--border);
+}
+
+[data-theme="light"] .global-player {
+    background: rgba(255, 255, 255, 0.8);
+    border-color: rgba(0, 0, 0, 0.05);
 }
 
 @media (min-width: 768px) {
@@ -128,12 +134,21 @@
 
 .control-btn:hover {
     color: var(--primary);
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--accent);
+}
+
+.control-btn-active {
+    color: var(--primary);
+    background: var(--accent);
 }
 
 .control-icon {
     width: 1.25rem;
     height: 1.25rem;
+}
+
+.icon-active {
+    stroke-width: 2.5px;
 }
 
 .play-pause-btn {
@@ -143,12 +158,12 @@
     box-shadow: 0 0 20px rgba(99, 102, 241, 0.4);
     background: var(--primary);
     color: var(--primary-foreground);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--border);
     transition: all var(--transition-base);
 }
 
 .play-pause-btn:hover {
-    background: rgba(99, 102, 241, 0.9);
+    opacity: 0.9;
     transform: scale(1.05);
 }
 

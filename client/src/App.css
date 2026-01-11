@@ -30,17 +30,21 @@
   display: none;
   width: 18rem;
   flex-shrink: 0;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--card);
   backdrop-filter: blur(40px);
   -webkit-backdrop-filter: blur(40px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border);
   box-shadow: var(--shadow-2xl);
-  background-color: rgba(0, 0, 0, 0.6);
   border-radius: var(--radius-2xl);
   margin: 1rem;
   margin-right: 0;
   z-index: 20;
 }
+
+/* [data-theme="light"] .sidebar {
+  background: var(--card);
+  border-right: 1px solid var(--border);
+} */
 
 @media (min-width: 768px) {
   .sidebar {
@@ -60,6 +64,19 @@
 
 .scroll-container {
   flex: 1;
+}
+
+.scroll-container .scroll-bar {
+  display: none !important;
+}
+
+.scroll-container .scroll-area-viewport::-webkit-scrollbar {
+  display: none;
+}
+
+.scroll-container .scroll-area-viewport {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 .content-container {
@@ -275,6 +292,10 @@
   -webkit-backdrop-filter: blur(24px);
 }
 
+[data-theme="light"] .modal-content {
+  background-color: var(--card);
+}
+
 .modal-close {
   position: absolute;
   top: 1rem;
@@ -295,7 +316,7 @@
 }
 
 .modal-body {
-  max-height: 85vh;
+  max-height: 60vh;
   overflow-y: auto;
 }
 
@@ -316,6 +337,14 @@
   -webkit-backdrop-filter: blur(4px);
 }
 
+@media (min-width: 768px) {
+
+  .mobile-menu-btn,
+  .mobile-sidebar-backdrop {
+    display: none;
+  }
+}
+
 .mobile-sidebar-container {
   position: fixed;
   left: 0;
@@ -324,11 +353,9 @@
   width: 85%;
   max-width: 20rem;
   background-color: var(--card);
-  /* Fallback */
-  background: rgba(15, 23, 42, 0.95);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  border-right: 1px solid var(--border);
   box-shadow: var(--shadow-2xl);
   overflow: hidden;
 }
@@ -361,14 +388,19 @@
   width: 85%;
   max-width: 20rem;
   background-color: var(--card);
-  background: rgba(15, 23, 42, 0.95);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  border-left: 1px solid var(--border);
   box-shadow: -4px 0 20px rgba(0, 0, 0, 0.5);
   overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+
+@media (min-width: 768px) {
+  .mobile-queue-container {
+    display: none;
+  }
 }
 
 /* Player Container */

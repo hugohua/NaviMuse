@@ -34,10 +34,10 @@
 
 /* Result Card */
 .result-card {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--card);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--border);
     box-shadow: var(--shadow-2xl);
     border-radius: var(--radius-xl);
     padding: 1.5rem;
@@ -113,14 +113,17 @@
 }
 
 .track-item:hover {
-    background-color: rgba(255, 255, 255, 0.05);
-    border-color: rgba(255, 255, 255, 0.1);
+    background-color: var(--accent);
+    border-color: var(--border);
 }
 
 .track-icon-wrapper {
     flex-shrink: 0;
     margin-top: 0.25rem;
-    padding: 0.5rem;
+    line-height: 34px;
+    text-align: center;
+    height: 30px;
+    width: 30px;
     border-radius: var(--radius-full);
     background-color: rgba(99, 102, 241, 0.2);
     color: var(--primary);
@@ -142,6 +145,8 @@
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
+    height: 30px;
+    line-height: 34px;
 }
 
 .track-reason {
@@ -158,9 +163,9 @@
     padding: 3rem;
     text-align: center;
     gap: 1rem;
-    border: 1px dashed rgba(255, 255, 255, 0.1);
+    border: 1px dashed var(--border);
     border-radius: var(--radius-xl);
-    background-color: rgba(255, 255, 255, 0.05);
+    background-color: var(--card);
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
 }

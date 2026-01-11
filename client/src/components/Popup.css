@@ -84,3 +84,8 @@
 .popup-btn.confirm:hover {
     filter: brightness(1.1);
 }
+
+[data-theme="light"] .popup-content {
+    background: var(--card);
+
+}

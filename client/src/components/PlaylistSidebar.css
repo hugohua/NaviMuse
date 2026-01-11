@@ -11,11 +11,11 @@
 /* Header */
 .sidebar-header {
     padding: 1rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid var(--border);
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--card);
 }
 
 .sidebar-header-icon {
@@ -28,7 +28,8 @@
     font-weight: 700;
     font-size: 1.125rem;
     letter-spacing: -0.025em;
-    color: rgba(248, 250, 252, 0.9);
+    letter-spacing: -0.025em;
+    color: var(--foreground);
     margin: 0;
 }
 
@@ -50,20 +51,34 @@
     font-size: 0.875rem;
     font-weight: 500;
     transition: all var(--transition-base);
-    background: rgba(255, 255, 255, 0.05);
+    transition: all var(--transition-base);
+    background: var(--muted);
     color: var(--muted-foreground);
     border: 1px solid transparent;
     cursor: pointer;
 }
 
+[data-theme="light"] .sidebar-tab {
+    /* background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted-foreground); */
+}
+
+[data-theme="light"] .sidebar-tab:hover {
+    background: var(--accent);
+    color: var(--accent-foreground);
+    border-color: var(--accent);
+}
+
 .sidebar-tab:hover {
-    background: rgba(255, 255, 255, 0.15);
+    background: var(--accent);
+    color: var(--accent-foreground);
 }
 
 .sidebar-tab-active {
-    background: var(--primary);
-    color: var(--primary-foreground);
-    box-shadow: var(--shadow-md);
+    background: var(--primary) !important;
+    color: var(--primary-foreground) !important;
+    box-shadow: var(--shadow-md) !important;
 }
 
 .tab-icon {
@@ -149,6 +164,19 @@
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
+[data-theme="light"] .playlist-item:hover {
+    background: var(--secondary-foreground);
+    border: 1px solid var(--border);
+}
+
+.playlist-item-active {
+    background: rgba(99, 102, 241, 0.2) !important;
+    color: var(--primary);
+    border-color: rgba(99, 102, 241, 0.3) !important;
+    box-shadow: 0 0 15px rgba(99, 102, 241, 0.15);
+}
+
 
 /* Actions */
 .playlist-actions {

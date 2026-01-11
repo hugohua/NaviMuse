@@ -44,17 +44,17 @@
     transition: all var(--transition-base);
     cursor: pointer;
     user-select: none;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--border);
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
-    background-color: rgba(255, 255, 255, 0.05);
+    background-color: var(--card);
     color: var(--muted-foreground);
 }
 
 .tag-item:hover {
-    background-color: rgba(255, 255, 255, 0.1);
-    border-color: rgba(255, 255, 255, 0.2);
-    color: var(--foreground);
+    background-color: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-foreground);
 }
 
 .tag-item-selected {
@@ -67,4 +67,8 @@
 .tag-item-selected:hover {
     background-color: var(--primary);
     border-color: var(--primary);
+}
+
+[data-theme="light"] .tag-item-selected:hover {
+    color: var(--primary-foreground);
 }

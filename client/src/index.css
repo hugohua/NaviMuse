@@ -58,6 +58,44 @@
   --transition-slow: 300ms ease;
 }
 
+[data-theme="light"] {
+  --background: hsl(0, 0%, 100%);
+  --foreground: hsl(224, 71%, 4%);
+
+  --card: hsl(0, 0%, 100%);
+  --card-foreground: hsl(224, 71%, 4%);
+
+  --popover: hsl(0, 0%, 100%);
+  --popover-foreground: hsl(224, 71%, 4%);
+
+  --primary: hsl(244, 87%, 67%);
+  --primary-foreground: hsl(210, 40%, 98%);
+
+  --secondary: hsl(199, 89%, 48%);
+  --secondary-foreground: hsl(210, 40%, 98%);
+
+  --muted: hsl(220, 14%, 96%);
+  --muted-foreground: hsl(220, 8%, 46%);
+
+  --accent: hsl(220, 14%, 96%);
+  --accent-foreground: hsl(224, 71%, 4%);
+
+  --destructive: hsl(0, 84%, 60%);
+  --destructive-foreground: hsl(210, 40%, 98%);
+
+  --border: hsl(220, 13%, 91%);
+  --input: hsl(220, 13%, 91%);
+  --ring: hsl(244, 87%, 67%);
+
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1);
+  --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+  --shadow-glow: 0 0 15px rgba(99, 102, 241, 0.15);
+  --shadow-glow-lg: 0 0 20px rgba(99, 102, 241, 0.25);
+}
+
 /* ----------------------------------------
    2. Base Styles & Reset
    ---------------------------------------- */

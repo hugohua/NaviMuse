@@ -3,10 +3,10 @@
    ======================================== */
 
 .profile-card {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--card);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--border);
     box-shadow: var(--shadow-2xl);
     color: var(--card-foreground);
     border-radius: var(--radius-xl);
@@ -91,8 +91,8 @@
     display: inline-flex;
     align-items: center;
     border-radius: var(--radius-full);
-    background-color: rgba(14, 165, 233, 0.2);
-    border: 1px solid rgba(14, 165, 233, 0.3);
+    background-color: var(--secondary);
+    border: 1px solid transparent;
     padding: 0.125rem 0.625rem;
     font-size: 0.75rem;
     font-weight: 600;
@@ -102,7 +102,7 @@
 }
 
 .summary-tag:hover {
-    background-color: rgba(14, 165, 233, 0.4);
+    filter: brightness(1.1);
     transform: scale(1.05);
 }
 
@@ -133,8 +133,8 @@
     gap: 0.25rem;
     padding: 0.5rem;
     border-radius: var(--radius-lg);
-    background-color: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    background-color: var(--muted);
+    border: 1px solid transparent;
 }
 
 .dimension-label {

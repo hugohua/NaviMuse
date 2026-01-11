@@ -1,9 +1,9 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { useAudioPlayer } from '../contexts/AudioPlayerContext';
+import { useAudioPlayer, useAudioProgress } from '../contexts/AudioPlayerContext';
 import { useQueuePanel } from '../contexts/QueuePanelContext';
 import {
-    Play, Pause, SkipBack, SkipForward, Volume2, ListMusic, Heart
+    Play, Pause, SkipBack, SkipForward, Volume2, ListMusic, Heart, Shuffle, Repeat, Repeat1
 } from 'lucide-react';
 import { Slider } from './ui/slider';
 import { Button } from './ui/button';
@@ -13,9 +13,10 @@ import './GlobalPlayer.css';
 export const GlobalPlayer: React.FC = () => {
     const {
         currentSong, isPlaying, play, pause, next, prev,
-        currentTime, duration, seek, volume, setVolume,
-        isStarring, toggleStar
+        seek, volume, setVolume,
+        isStarring, toggleStar, playMode, togglePlayMode
     } = useAudioPlayer();
+    const { currentTime, duration } = useAudioProgress();
 
     const { isQueueOpen, toggleQueue } = useQueuePanel();
 
@@ -26,6 +27,31 @@ export const GlobalPlayer: React.FC = () => {
         const m = Math.floor(secs / 60);
         const s = Math.floor(secs % 60);
         return `${m}:${s < 10 ? '0' + s : s}`;
+    };
+
+    const getModeIcon = () => {
+        switch (playMode) {
+            case 'loop':
+                return <Repeat className="control-icon icon-active" />;
+            case 'one':
+                return <Repeat1 className="control-icon icon-active" />;
+            case 'shuffle':
+                return <Shuffle className="control-icon icon-active" />;
+            case 'sequence':
+            default:
+                // Using Repeat icon but grayed out to indicate "play through list then stop" (or just standard linear)
+                // Alternatively could use ListOrdered. But Repeat (inactive) is common for "No Repeat".
+                return <Repeat className="control-icon" />;
+        }
+    };
+
+    const getModeTitle = () => {
+        switch (playMode) {
+            case 'loop': return "Loop All";
+            case 'one': return "Loop One";
+            case 'shuffle': return "Shuffle";
+            default: return "Sequence";
+        }
     };
 
     return (
@@ -59,6 +85,16 @@ export const GlobalPlayer: React.FC = () => {
             {/* Controls Center */}
             <div className="player-controls">
                 <div className="control-buttons">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={togglePlayMode}
+                        className={cn("control-btn", playMode !== 'sequence' && "control-btn-active")}
+                        title={getModeTitle()}
+                    >
+                        {getModeIcon()}
+                    </Button>
+
                     <Button variant="ghost" size="icon" onClick={prev} className="control-btn">
                         <SkipBack className="control-icon fill-current" />
                     </Button>

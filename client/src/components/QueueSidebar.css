@@ -7,9 +7,15 @@
     width: 100%;
     display: flex;
     flex-direction: column;
-    background: rgba(10, 10, 10, 0.95);
+    flex-direction: column;
+    background: var(--card);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
+}
+
+[data-theme="light"] .queue-sidebar {
+    background: var(--card);
+    border-left: 1px solid var(--border);
 }
 
 .queue-empty {
@@ -28,8 +34,8 @@
     align-items: center;
     justify-content: space-between;
     padding: 1rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    background: rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid var(--border);
+    background: var(--card);
 }
 
 .queue-title {
@@ -46,10 +52,9 @@
 }
 
 .queue-list {
-    padding: 0.5rem;
+    padding: 0.5rem 1rem 0.5rem 0.5rem;
 }
 
-/* Queue Item */
 .queue-item {
     display: flex;
     align-items: center;
@@ -65,13 +70,19 @@
 .queue-item:hover {
     background: rgba(255, 255, 255, 0.1);
     border-color: rgba(255, 255, 255, 0.1);
+    box-shadow: var(--shadow-lg);
+}
+
+[data-theme="light"] .queue-item:hover {
+    background: var(--secondary-foreground);
+    border: 1px solid var(--border);
 }
 
 .queue-item-current {
-    background: rgba(99, 102, 241, 0.2);
-    color: var(--primary);
-    border-color: rgba(99, 102, 241, 0.3);
-    box-shadow: 0 0 15px rgba(99, 102, 241, 0.15);
+    background: rgba(99, 102, 241, 0.2) !important;
+    color: var(--primary) !important;
+    border-color: rgba(99, 102, 241, 0.3) !important;
+    box-shadow: 0 0 15px rgba(99, 102, 241, 0.15) !important;
 }
 
 /* Index Column */
@@ -97,6 +108,17 @@
 .index-current {
     color: var(--primary);
 }
+
+/* [data-theme="light"] .queue-item-current .song-title,
+[data-theme="light"] .queue-item-current .song-artist,
+[data-theme="light"] .queue-item-current .index-number,
+[data-theme="light"] .queue-item-current .song-duration {
+    color: var(--foreground);
+} */
+
+/* [data-theme="light"] .queue-item-current:hover {
+    background: var(--primary);
+} */
 
 /* Equalizer Animation */
 .equalizer {
@@ -126,7 +148,9 @@
     white-space: nowrap;
     font-weight: 500;
     font-size: 0.875rem;
-    color: rgba(248, 250, 252, 0.9);
+    font-weight: 500;
+    font-size: 0.875rem;
+    color: var(--foreground);
 }
 
 .song-title-current {

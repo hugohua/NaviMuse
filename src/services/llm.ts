@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
-import { config, promptConfig } from '../config';
+import { config } from '../config';
+import { tagCategories } from '../data/tags';
 import { Song, CuratorResponse } from '../types';
 
 /**
@@ -8,14 +9,19 @@ import { Song, CuratorResponse } from '../types';
  */
 export class LLMClient {
     private client: OpenAI;
-    private model: string;
 
     constructor() {
         this.client = new OpenAI({
             apiKey: config.ai.apiKey,
             baseURL: config.ai.baseURL,
         });
-        this.model = config.ai.model;
+    }
+
+    private getRandomModel(): string {
+        const candidates = ['deepseek-v3.2', 'qwen3-max'];
+        const model = candidates[Math.floor(Math.random() * candidates.length)];
+        console.log(`[LLM] Selected model for request: ${model}`);
+        return model;
     }
 
     /**
@@ -36,7 +42,7 @@ export class LLMClient {
             `ID:${s.id}|Title:${s.title}|Artist:${s.artist}|Genre:${s.genre}|Fav:${s.starred ? 'Yes' : 'No'}`
         ).join('\n');
 
-        const tagKnowledgeBase = promptConfig.tagCategories
+        const tagKnowledgeBase = tagCategories
             .flatMap(cat => Object.entries(cat.attributes).map(([tag, desc]) => `- "${tag}": ${desc}`))
             .join('\n');
 
@@ -112,7 +118,7 @@ ${candidatesCSV}
         // console.log('--- [DEBUG] User Prompt: ---\n', content);
 
         const response = await this.client.chat.completions.create({
-            model: this.model,
+            model: this.getRandomModel(),
             messages: [
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: content }
@@ -193,7 +199,7 @@ Please generate my User Persona in Strict JSON format.
         console.log('[LLM] Generating User Profile with Sample:', config.app.profileSampleSize);
 
         const response = await this.client.chat.completions.create({
-            model: this.model,
+            model: this.getRandomModel(),
             messages: [
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: userPrompt }

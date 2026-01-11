@@ -13,12 +13,15 @@ import { api } from './api';
 import { usePopup } from './contexts/PopupContext';
 import { ScrollArea } from './components/ui/scroll-area';
 import { Button } from './components/ui/button';
-import { Sparkles, ArrowRight, Loader2, Menu } from 'lucide-react';
+import { Sparkles, ArrowRight, Loader2, Menu, Sun, Moon } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { useMediaQuery } from './hooks/use-media-query';
+import { useTheme } from './hooks/use-theme';
 import './App.css';
 
 function AppContent() {
   const { showPopup } = usePopup();
+  const isDesktop = useMediaQuery('(min-width: 768px)');
 
   const [mode, setMode] = useState<DiscoveryMode>('default');
   const [prompt, setPrompt] = useState('');
@@ -129,6 +132,7 @@ function AppContent() {
   };
 
   const { isQueueOpen, setQueueOpen } = useQueuePanel();
+  const { theme, toggleTheme } = useTheme();
 
   return (
     <div className="app-root">
@@ -142,6 +146,15 @@ function AppContent() {
 
         {/* Main Content */}
         <div className="main-content">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute top-4 right-4 z-50 text-foreground/80 hover:text-foreground hover:bg-white/10"
+            onClick={toggleTheme}
+          >
+            {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+          </Button>
+
           <ScrollArea className="scroll-container">
             <div className="content-container">
               {/* Header */}
@@ -150,12 +163,16 @@ function AppContent() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="mobile-menu-btn md:hidden"
+                    className="mobile-menu-btn"
                     onClick={() => setIsMobileMenuOpen(true)}
                   >
                     <Menu className="w-6 h-6" />
                   </Button>
-                  <img src="/logo-dark.svg" alt="NaviMuse Logo" className="w-12 h-12" />
+                  <img
+                    src={theme === 'dark' ? "/logo-dark.svg" : "/logo-light.svg"}
+                    alt="NaviMuse Logo"
+                    className="w-12 h-12"
+                  />
                   <h1 className="app-title">NaviMuse</h1>
                 </div>
                 <p className="app-subtitle">AI Music Curator</p>
@@ -287,7 +304,7 @@ function AppContent() {
 
         {/* Mobile Sidebar Overlay */}
         <AnimatePresence>
-          {isMobileMenuOpen && (
+          {isMobileMenuOpen && !isDesktop && (
             <>
               <motion.div
                 initial={{ opacity: 0 }}
@@ -304,11 +321,15 @@ function AppContent() {
                 className="mobile-sidebar-container z-50"
               >
                 <div className="h-full flex flex-col">
-                  <div className="p-4 flex justify-end">
-                    <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(false)}>
-                      <span className="text-xl">×</span>
-                    </Button>
-                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="absolute top-4 right-4 z-50 text-foreground/80 hover:text-foreground hover:bg-white/10"
+                  >
+                    <span className="text-xl">×</span>
+                  </Button>
+                  {/* <div className="h-4"></div> */}
                   <PlaylistSidebar
                     className="flex-1"
                     refreshTrigger={refreshPlaylists}
@@ -322,13 +343,13 @@ function AppContent() {
 
         {/* Mobile Queue Overlay */}
         <AnimatePresence>
-          {isQueueOpen && (
+          {isQueueOpen && !isDesktop && (
             <>
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="mobile-sidebar-backdrop z-40 md:hidden"
+                className="mobile-sidebar-backdrop z-40"
                 onClick={() => setQueueOpen(false)}
               />
               <motion.div
@@ -336,15 +357,18 @@ function AppContent() {
                 animate={{ x: 0 }}
                 exit={{ x: '100%' }}
                 transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                className="mobile-queue-container z-50 md:hidden"
+                className="mobile-queue-container z-50"
               >
                 <div className="h-full flex flex-col">
-                  <div className="p-4 flex justify-between items-center bg-white/5 border-b border-white/10">
-                    <span className="font-semibold">Playing Queue</span>
-                    <Button variant="ghost" size="icon" onClick={() => setQueueOpen(false)}>
-                      <span className="text-xl">×</span>
-                    </Button>
-                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setQueueOpen(false)}
+                    className="absolute top-4 right-4 z-50 text-foreground/80 hover:text-foreground hover:bg-white/10"
+                  >
+                    <span className="text-xl">×</span>
+                  </Button>
+                  {/* <div className="h-4"></div> */}
                   <div className="flex-1 overflow-hidden">
                     <QueueSidebar />
                   </div>
