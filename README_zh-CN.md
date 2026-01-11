@@ -37,6 +37,8 @@ ND_PASS=<你的密码或Token>  # 如果使用LDAP/Token，请使用十六进制
 OPENAI_API_KEY=<你的API Key>
 OPENAI_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1 # 可选，默认为阿里云
 OPENAI_MODEL=qwen3-max # 可选，默认为 qwen3-max
+# 可选：模型随机选择列表（逗号分隔）
+OPENAI_MODEL_LIST=deepseek-v3.2,qwen3-max
 ```
 
 ### 2. 运行

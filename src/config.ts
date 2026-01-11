@@ -23,6 +23,7 @@ export const config = {
         apiKey: getEnv('OPENAI_API_KEY'),
         baseURL: getEnv('OPENAI_BASE_URL') || 'https://dashscope.aliyuncs.com/compatible-mode/v1',
         model: getEnv('OPENAI_MODEL') || 'qwen3-max',
+        modelList: (getEnv('OPENAI_MODEL_LIST', false) || '').split(',').filter(Boolean),
     },
     app: {
         port: parseInt(process.env.PORT || '3000', 10),

@@ -18,10 +18,13 @@ export class LLMClient {
     }
 
     private getRandomModel(): string {
-        const candidates = ['deepseek-v3.2', 'qwen3-max'];
-        const model = candidates[Math.floor(Math.random() * candidates.length)];
-        console.log(`[LLM] Selected model for request: ${model}`);
-        return model;
+        const { model, modelList } = config.ai;
+        // Use list if available, otherwise fallback to single model
+        const candidates = (modelList && modelList.length > 0) ? modelList : [model];
+
+        const selected = candidates[Math.floor(Math.random() * candidates.length)];
+        console.log(`[LLM] Selected model for request: ${selected}`);
+        return selected;
     }
 
     /**

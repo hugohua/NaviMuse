@@ -41,6 +41,8 @@ ND_PASS=<your-password-or-token>  # If using LDAP/Token, use hex encoded token
 OPENAI_API_KEY=<your-api-key>
 OPENAI_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1 # Optional, defaults to Aliyun
 OPENAI_MODEL=qwen3-max # Optional, defaults to qwen3-max
+# Optional: Comma separated list of models to randomly choose from
+OPENAI_MODEL_LIST=deepseek-v3.2,qwen3-max
 ```
 
 ### 2. Run
