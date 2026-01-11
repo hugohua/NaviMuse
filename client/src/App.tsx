@@ -13,7 +13,7 @@ import { api } from './api';
 import { usePopup } from './contexts/PopupContext';
 import { ScrollArea } from './components/ui/scroll-area';
 import { Button } from './components/ui/button';
-import { Sparkles, ArrowRight, Loader2 } from 'lucide-react';
+import { Sparkles, ArrowRight, Loader2, Menu } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import './App.css';
 
@@ -34,6 +34,9 @@ function AppContent() {
 
   // Playlist list refresh trigger
   const [refreshPlaylists, setRefreshPlaylists] = useState(0);
+
+  // Mobile Menu State
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Init: Fetch Tags
   useEffect(() => {
@@ -125,7 +128,7 @@ function AppContent() {
     return '默认模式';
   };
 
-  const { isQueueOpen } = useQueuePanel();
+  const { isQueueOpen, setQueueOpen } = useQueuePanel();
 
   return (
     <div className="app-root">
@@ -144,6 +147,14 @@ function AppContent() {
               {/* Header */}
               <header className="app-header">
                 <div className="flex items-center justify-center gap-4 mb-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="mobile-menu-btn md:hidden"
+                    onClick={() => setIsMobileMenuOpen(true)}
+                  >
+                    <Menu className="w-6 h-6" />
+                  </Button>
                   <img src="/logo-dark.svg" alt="NaviMuse Logo" className="w-12 h-12" />
                   <h1 className="app-title">NaviMuse</h1>
                 </div>
@@ -271,6 +282,75 @@ function AppContent() {
             >
               <QueueSidebar />
             </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Mobile Sidebar Overlay */}
+        <AnimatePresence>
+          {isMobileMenuOpen && (
+            <>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="mobile-sidebar-backdrop z-40"
+                onClick={() => setIsMobileMenuOpen(false)}
+              />
+              <motion.div
+                initial={{ x: '-100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '-100%' }}
+                transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                className="mobile-sidebar-container z-50"
+              >
+                <div className="h-full flex flex-col">
+                  <div className="p-4 flex justify-end">
+                    <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(false)}>
+                      <span className="text-xl">×</span>
+                    </Button>
+                  </div>
+                  <PlaylistSidebar
+                    className="flex-1"
+                    refreshTrigger={refreshPlaylists}
+                    onRefresh={() => setRefreshPlaylists(p => p + 1)}
+                  />
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
+
+        {/* Mobile Queue Overlay */}
+        <AnimatePresence>
+          {isQueueOpen && (
+            <>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="mobile-sidebar-backdrop z-40 md:hidden"
+                onClick={() => setQueueOpen(false)}
+              />
+              <motion.div
+                initial={{ x: '100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '100%' }}
+                transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                className="mobile-queue-container z-50 md:hidden"
+              >
+                <div className="h-full flex flex-col">
+                  <div className="p-4 flex justify-between items-center bg-white/5 border-b border-white/10">
+                    <span className="font-semibold">Playing Queue</span>
+                    <Button variant="ghost" size="icon" onClick={() => setQueueOpen(false)}>
+                      <span className="text-xl">×</span>
+                    </Button>
+                  </div>
+                  <div className="flex-1 overflow-hidden">
+                    <QueueSidebar />
+                  </div>
+                </div>
+              </motion.div>
+            </>
           )}
         </AnimatePresence>
       </div>

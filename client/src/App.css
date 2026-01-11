@@ -299,7 +299,42 @@
   overflow-y: auto;
 }
 
+/* Mobile Sidebar & Menu */
+.mobile-menu-btn {
+  position: absolute;
+  left: 1rem;
+  top: 1rem;
+  z-index: 30;
+  color: var(--foreground);
+}
+
+.mobile-sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.mobile-sidebar-container {
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 85%;
+  max-width: 20rem;
+  background-color: var(--card);
+  /* Fallback */
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: var(--shadow-2xl);
+  overflow: hidden;
+}
+
 /* Queue Panel */
+/* Queue Panel (Desktop) */
 .queue-panel {
   display: none;
   flex-shrink: 0;
@@ -315,6 +350,25 @@
   .queue-panel {
     display: flex;
   }
+}
+
+/* Mobile Queue Drawer */
+.mobile-queue-container {
+  position: fixed;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 85%;
+  max-width: 20rem;
+  background-color: var(--card);
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Player Container */

@@ -12,7 +12,8 @@
     border-radius: var(--radius-full);
     display: flex;
     align-items: center;
-    padding: 0 2rem;
+    padding: 0 0.75rem;
+    /* Reduced padding for mobile */
     justify-content: space-between;
     position: relative;
     z-index: 50;
@@ -24,14 +25,29 @@
     background: rgba(255, 255, 255, 0.1);
 }
 
+@media (min-width: 768px) {
+    .global-player {
+        padding: 0 2rem;
+    }
+}
+
 /* Track Info Section */
 .player-track-info {
-    width: 33.333%;
-    min-width: 180px;
+    width: 30%;
+    /* Less width on mobile */
+    min-width: 0;
+    /* Allow shrinking */
     display: flex;
     align-items: center;
     gap: 0.75rem;
     overflow: hidden;
+}
+
+@media (min-width: 768px) {
+    .player-track-info {
+        width: 33.333%;
+        min-width: 180px;
+    }
 }
 
 .star-btn {
@@ -183,12 +199,21 @@
 
 /* Extras Section */
 .player-extras {
-    width: 33.333%;
-    min-width: 180px;
+    width: 20%;
+    /* Smaller on mobile */
+    min-width: 0;
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    gap: 1rem;
+    gap: 0.5rem;
+}
+
+@media (min-width: 768px) {
+    .player-extras {
+        width: 33.333%;
+        min-width: 180px;
+        gap: 1rem;
+    }
 }
 
 .volume-control {

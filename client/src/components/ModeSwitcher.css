@@ -15,10 +15,21 @@
     box-shadow: var(--shadow-2xl);
     padding: 0.25rem;
     color: var(--muted-foreground);
+    /* Mobile Fix */
+    width: 100%;
+    max-width: 100%;
+}
+
+@media (min-width: 768px) {
+    .mode-switcher {
+        width: auto;
+    }
 }
 
 .mode-option {
     display: inline-flex;
+    flex: 1;
+    /* Allow growing on mobile */
     align-items: center;
     justify-content: center;
     white-space: nowrap;
