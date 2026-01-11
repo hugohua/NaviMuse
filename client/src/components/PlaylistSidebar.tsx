@@ -4,6 +4,7 @@ import { api } from '../api';
 import type { Playlist } from '../types';
 import { usePopup } from '../contexts/PopupContext';
 import { useAudioPlayer } from '../contexts/AudioPlayerContext';
+import { useQueuePanel } from '../contexts/QueuePanelContext';
 import { ScrollArea } from './ui/scroll-area';
 import { Button } from './ui/button';
 import { cn } from '../utils/cn';
@@ -20,6 +21,7 @@ type TabType = 'navimuse' | 'library';
 export const PlaylistSidebar: React.FC<PlaylistSidebarProps> = ({ refreshTrigger, onRefresh, className }) => {
     const { showPopup } = usePopup();
     const { playPlaylist, currentPlaylistId } = useAudioPlayer();
+    const { setQueueOpen } = useQueuePanel();
 
     const [playlists, setPlaylists] = useState<Playlist[]>([]);
     const [loading, setLoading] = useState(false);
@@ -72,6 +74,7 @@ export const PlaylistSidebar: React.FC<PlaylistSidebarProps> = ({ refreshTrigger
                 return;
             }
             playPlaylist(songs, id);
+            setQueueOpen(true);
         } catch (err: any) {
             console.error('Failed to play playlist', err);
             showPopup({ title: 'Error', message: 'Failed to play playlist: ' + err.message });

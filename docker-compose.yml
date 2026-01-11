@@ -1,0 +1,33 @@
+services:
+  navimuse:
+    build: .
+    container_name: navimuse
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+      # Pass through Navidrome credentials
+      - ND_URL=${ND_URL}
+      - ND_USER=${ND_USER}
+      - ND_PASS=${ND_PASS}
+      # Pass through OpenAI config
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL}
+      - OPENAI_MODEL=${OPENAI_MODEL}
+    # Load env file if available
+    env_file:
+      - .env
+    # Allow access to host machine via host.docker.internal
+    # Linux: requires this mapping. Mac/Windows: explicit mapping is safe/good practice.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/" ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    # Optional: Volume mapping for persistent data if any (currently none specified in server.js but good for logs/uploads if added later)
+    # volumes:
+    #   - ./data:/app/data

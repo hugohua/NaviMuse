@@ -143,7 +143,10 @@ function AppContent() {
             <div className="content-container">
               {/* Header */}
               <header className="app-header">
-                <h1 className="app-title">NaviMuse</h1>
+                <div className="flex items-center justify-center gap-4 mb-2">
+                  <img src="/logo-dark.svg" alt="NaviMuse Logo" className="w-12 h-12" />
+                  <h1 className="app-title">NaviMuse</h1>
+                </div>
                 <p className="app-subtitle">AI Music Curator</p>
               </header>
 

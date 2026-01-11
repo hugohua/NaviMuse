@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <defs>
+    <linearGradient id="grad-main" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#3b82f6" />
+      <stop offset="100%" stop-color="#8b5cf6" />
+    </linearGradient>
+    <linearGradient id="grad-cyan" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#06b6d4" />
+      <stop offset="100%" stop-color="#3b82f6" />
+    </linearGradient>
+  </defs>
+
+  <!-- Group rotated 45 degrees to match the diagonal dynamism -->
+  <g transform="rotate(-45 50 50)">
+    
+    <!-- Outer Decorative Arc (Left) -->
+    <path d="M 20 50 A 30 30 0 0 1 50 20" stroke="url(#grad-cyan)" stroke-width="4" stroke-linecap="round" />
+    
+    <!-- Small Decorative Square/Dot (Top) -->
+    <rect x="48" y="10" width="4" height="4" fill="#a855f7" />
+
+    <!-- Main Outer Ring (Gradient) - Cut by lines -->
+    <!-- We simulate the cut by drawing two arcs -->
+    <path d="M 68 68 A 25 25 0 1 0 32 32" stroke="url(#grad-main)" stroke-width="8" stroke-linecap="butt" />
+    
+    <!-- Inner Central Core -->
+    <circle cx="50" cy="50" r="10" stroke="#ffffff" stroke-width="3" />
+    
+    <!-- Center Dot -->
+    <circle cx="50" cy="50" r="3" fill="#ffffff" />
+
+    <!-- Diagonal Lines (Rays) - In our rotated space, these are vertical/horizontal -->
+    <!-- Actually, let's draw them straight in the rotated space. 
+         The image has lines going through the center. -->
+    
+    <!-- Long Line passing through center -->
+    <line x1="50" y1="85" x2="50" y2="15" stroke="#ffffff" stroke-width="3" />
+
+    <!-- Parallel Offset Line (Right) -->
+    <line x1="65" y1="75" x2="65" y2="35" stroke="url(#grad-cyan)" stroke-width="3" />
+    
+    <!-- Parallel Offset Line (Left, shorter) -->
+    <line x1="35" y1="65" x2="35" y2="85" stroke="url(#grad-main)" stroke-width="3" />
+
+    <!-- Outer Decorative Elements -->
+    <circle cx="80" cy="50" r="3" stroke="#ffffff" stroke-width="2" />
+    <rect x="15" y="48" width="4" height="4" stroke="#ffffff" stroke-width="1.5" />
+
+  </g>
+</svg>
