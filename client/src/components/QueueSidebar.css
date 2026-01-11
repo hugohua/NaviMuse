@@ -1,0 +1,162 @@
+/* ========================================
+   QueueSidebar Component Styles
+   ======================================== */
+
+.queue-sidebar {
+    height: 100%;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    background: rgba(10, 10, 10, 0.95);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+}
+
+.queue-empty {
+    height: 100%;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted-foreground);
+    font-size: 0.875rem;
+}
+
+/* Header */
+.queue-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.queue-title {
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: var(--foreground);
+}
+
+/* Scroll Container */
+.queue-scroll {
+    flex: 1;
+    width: 100%;
+    min-height: 0;
+}
+
+.queue-list {
+    padding: 0.5rem;
+}
+
+/* Queue Item */
+.queue-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    border-radius: var(--radius-xl);
+    cursor: pointer;
+    transition: background-color var(--transition-base), border-color var(--transition-base);
+    border: 1px solid transparent;
+    margin-bottom: 0.25rem;
+}
+
+.queue-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.queue-item-current {
+    background: rgba(99, 102, 241, 0.2);
+    color: var(--primary);
+    border-color: rgba(99, 102, 241, 0.3);
+    box-shadow: 0 0 15px rgba(99, 102, 241, 0.15);
+}
+
+/* Index Column */
+.queue-item-index {
+    width: 1.5rem;
+    display: flex;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.index-number {
+    font-size: 0.75rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+    opacity: 0.5;
+    transition: opacity var(--transition-base);
+    color: var(--muted-foreground);
+}
+
+.queue-item:hover .index-number {
+    opacity: 1;
+}
+
+.index-current {
+    color: var(--primary);
+}
+
+/* Equalizer Animation */
+.equalizer {
+    display: flex;
+    gap: 2px;
+    align-items: flex-end;
+    justify-content: center;
+    height: 1rem;
+}
+
+.equalizer .bar {
+    width: 0.25rem;
+    background-color: currentColor;
+    border-radius: var(--radius-full);
+}
+
+/* Song Info */
+.queue-item-info {
+    flex: 1;
+    overflow: hidden;
+    min-width: 0;
+}
+
+.song-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 500;
+    font-size: 0.875rem;
+    color: rgba(248, 250, 252, 0.9);
+}
+
+.song-title-current {
+    color: var(--foreground);
+}
+
+.song-artist {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.75rem;
+    color: var(--muted-foreground);
+    transition: color var(--transition-base);
+}
+
+.queue-item:hover .song-artist {
+    color: rgba(148, 163, 184, 0.8);
+}
+
+/* Duration */
+.song-duration {
+    font-size: 0.75rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+    color: var(--muted-foreground);
+    opacity: 0.6;
+    transition: opacity var(--transition-base);
+    min-width: 2rem;
+    text-align: right;
+}
+
+.queue-item:hover .song-duration {
+    opacity: 1;
+}

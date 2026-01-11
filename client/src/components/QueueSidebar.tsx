@@ -3,6 +3,7 @@ import { motion, type Variants } from 'framer-motion';
 import { useAudioPlayer } from '../contexts/AudioPlayerContext';
 import { ScrollArea } from './ui/scroll-area';
 import { cn } from '../utils/cn';
+import './QueueSidebar.css';
 
 const listVariants: Variants = {
     hidden: { opacity: 0 },
@@ -37,25 +38,25 @@ export const QueueSidebar: React.FC = () => {
 
     if (!currentSong || queue.length === 0) {
         return (
-            <div className="h-full w-full flex items-center justify-center text-muted-foreground text-sm">
+            <div className="queue-empty">
                 No tracks in queue
             </div>
         );
     }
 
     return (
-        <div className="h-full w-full flex flex-col bg-[#0a0a0a]/95 backdrop-blur-xl">
+        <div className="queue-sidebar">
             <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3 }}
-                className="flex items-center justify-between p-4 border-b border-white/10 bg-white/5"
+                className="queue-header"
             >
-                <span className="font-semibold text-sm text-foreground">Play Queue ({queue.length})</span>
+                <span className="queue-title">Play Queue ({queue.length})</span>
             </motion.div>
-            <ScrollArea className="flex-1 w-full min-h-0">
+            <ScrollArea className="queue-scroll">
                 <motion.div
-                    className="p-2"
+                    className="queue-list"
                     initial="hidden"
                     animate="visible"
                     variants={listVariants}
@@ -69,49 +70,47 @@ export const QueueSidebar: React.FC = () => {
                                 whileHover={{ scale: 1.02, x: 4 }}
                                 whileTap={{ scale: 0.98 }}
                                 className={cn(
-                                    "group flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-colors duration-200 border border-transparent mb-1",
-                                    isCurrent
-                                        ? "bg-primary/20 text-primary border-primary/30 shadow-[0_0_15px_rgba(99,102,241,0.15)]"
-                                        : "hover:bg-white/10 hover:border-white/10"
+                                    "queue-item",
+                                    isCurrent && "queue-item-current"
                                 )}
                                 onClick={() => playAtIndex(idx)}
                             >
-                                <div className="w-6 flex justify-center flex-shrink-0">
+                                <div className="queue-item-index">
                                     {isCurrent && isPlaying ? (
-                                        <div className="flex gap-0.5 items-end justify-center h-4">
+                                        <div className="equalizer">
                                             <motion.span
-                                                className="w-1 bg-current rounded-full"
+                                                className="bar"
                                                 animate={{ height: ["100%", "40%", "80%", "60%", "100%"] }}
                                                 transition={{ duration: 0.8, repeat: Infinity, ease: "easeInOut" }}
                                             />
                                             <motion.span
-                                                className="w-1 bg-current rounded-full"
+                                                className="bar"
                                                 animate={{ height: ["60%", "100%", "40%", "80%", "60%"] }}
                                                 transition={{ duration: 1.0, repeat: Infinity, ease: "easeInOut" }}
                                             />
                                             <motion.span
-                                                className="w-1 bg-current rounded-full"
+                                                className="bar"
                                                 animate={{ height: ["80%", "60%", "100%", "40%", "80%"] }}
                                                 transition={{ duration: 0.9, repeat: Infinity, ease: "easeInOut" }}
                                             />
                                         </div>
                                     ) : (
-                                        <span className={cn("text-xs font-mono opacity-50 group-hover:opacity-100 transition-opacity", isCurrent ? "text-primary" : "text-muted-foreground")}>
+                                        <span className={cn("index-number", isCurrent && "index-current")}>
                                             {idx + 1}
                                         </span>
                                     )}
                                 </div>
 
-                                <div className="flex-1 overflow-hidden min-w-0">
-                                    <div className={cn("truncate font-medium text-sm", isCurrent ? "text-foreground" : "text-foreground/90")}>
+                                <div className="queue-item-info">
+                                    <div className={cn("song-title", isCurrent && "song-title-current")}>
                                         {song.title}
                                     </div>
-                                    <div className="truncate text-xs text-muted-foreground group-hover:text-muted-foreground/80 transition-colors">
+                                    <div className="song-artist">
                                         {song.artist}
                                     </div>
                                 </div>
 
-                                <div className="text-xs font-mono text-muted-foreground opacity-60 group-hover:opacity-100 transition-opacity min-w-[32px] text-right">
+                                <div className="song-duration">
                                     {formatTime(song.duration)}
                                 </div>
                             </motion.div>

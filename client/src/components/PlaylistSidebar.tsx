@@ -7,6 +7,7 @@ import { useAudioPlayer } from '../contexts/AudioPlayerContext';
 import { ScrollArea } from './ui/scroll-area';
 import { Button } from './ui/button';
 import { cn } from '../utils/cn';
+import './PlaylistSidebar.css';
 
 interface PlaylistSidebarProps {
     refreshTrigger?: number;
@@ -99,48 +100,38 @@ export const PlaylistSidebar: React.FC<PlaylistSidebarProps> = ({ refreshTrigger
     };
 
     return (
-        <div className={cn("flex flex-col h-full", className)}>
+        <div className={cn("playlist-sidebar", className)}>
             {/* Header */}
-            <div className="p-4 border-b border-white/10 flex items-center gap-2 bg-white/5">
-                <Library className="w-5 h-5 text-primary" />
-                <h2 className="font-bold text-lg tracking-tight text-foreground/90">我的歌单</h2>
+            <div className="sidebar-header">
+                <Library className="sidebar-header-icon" />
+                <h2 className="sidebar-title">我的歌单</h2>
             </div>
 
             {/* Tabs */}
-            <div className="px-2 pt-2 flex gap-1">
+            <div className="sidebar-tabs">
                 <button
                     onClick={() => setActiveTab('navimuse')}
-                    className={cn(
-                        "flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all",
-                        activeTab === 'navimuse'
-                            ? "bg-primary text-primary-foreground shadow-md"
-                            : "bg-white/5 text-muted-foreground hover:bg-white/15 border border-transparent"
-                    )}
+                    className={cn("sidebar-tab", activeTab === 'navimuse' && "sidebar-tab-active")}
                 >
-                    <Sparkles className="w-3.5 h-3.5" />
+                    <Sparkles className="tab-icon" />
                     <span>AI 生成</span>
-                    <span className="text-xs opacity-80">({navimusePlaylists.length})</span>
+                    <span className="tab-count">({navimusePlaylists.length})</span>
                 </button>
                 <button
                     onClick={() => setActiveTab('library')}
-                    className={cn(
-                        "flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all",
-                        activeTab === 'library'
-                            ? "bg-primary text-primary-foreground shadow-md"
-                            : "bg-white/5 text-muted-foreground hover:bg-white/15 border border-transparent"
-                    )}
+                    className={cn("sidebar-tab", activeTab === 'library' && "sidebar-tab-active")}
                 >
-                    <Music className="w-3.5 h-3.5" />
+                    <Music className="tab-icon" />
                     <span>曲库</span>
-                    <span className="text-xs opacity-80">({libraryPlaylists.length})</span>
+                    <span className="tab-count">({libraryPlaylists.length})</span>
                 </button>
             </div>
 
             {/* Playlist List */}
-            <ScrollArea className="flex-1">
-                <div className="p-2 space-y-1">
+            <ScrollArea className="sidebar-scroll">
+                <div className="playlist-list">
                     {loading && playlists.length === 0 ? (
-                        <div className="p-4 text-center text-sm text-muted-foreground animate-pulse">Loading...</div>
+                        <div className="playlist-loading">Loading...</div>
                     ) : (
                         <>
                             {displayPlaylists.map(p => {
@@ -150,42 +141,40 @@ export const PlaylistSidebar: React.FC<PlaylistSidebarProps> = ({ refreshTrigger
                                     <div
                                         key={p.id}
                                         className={cn(
-                                            "group flex items-center justify-between p-3 rounded-xl transition-all cursor-pointer border mb-1",
-                                            isActive
-                                                ? "bg-white/10 border-white/10 shadow-lg"
-                                                : "border-transparent hover:bg-white/10 hover:border-white/10 hover:shadow-lg"
+                                            "playlist-item",
+                                            isActive && "playlist-item-active"
                                         )}
                                         onClick={(e) => handlePlay(p.id, e)}
                                     >
-                                        <div className="flex-1 min-w-0 pr-2">
-                                            <div className="font-medium text-sm truncate text-foreground group-hover:text-accent-foreground">
+                                        <div className="playlist-info">
+                                            <div className="playlist-name">
                                                 {isNaviMuse ? p.name.replace(/^NaviMuse:?\s*/, '') : p.name}
                                             </div>
-                                            <div className="text-xs text-muted-foreground truncate">
+                                            <div className="playlist-meta">
                                                 {p.songCount} songs • {formatDuration(p.duration)} • {formatDate(p.created)}
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <div className="playlist-actions">
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
-                                                className="h-7 w-7"
+                                                className="action-btn"
                                                 onClick={(e) => handlePlay(p.id, e)}
                                             >
-                                                <Play className="w-3.5 h-3.5 fill-current" />
+                                                <Play className="action-icon fill-current" />
                                             </Button>
                                             {isNaviMuse && (
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
-                                                    className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                                    className="action-btn action-btn-delete"
                                                     onClick={(e) => handleDelete(p.id, e)}
                                                     disabled={deletingId === p.id}
                                                 >
                                                     {deletingId === p.id ? (
                                                         <span className="animate-spin">⟳</span>
                                                     ) : (
-                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                        <Trash2 className="action-icon" />
                                                     )}
                                                 </Button>
                                             )}
@@ -194,7 +183,7 @@ export const PlaylistSidebar: React.FC<PlaylistSidebarProps> = ({ refreshTrigger
                                 )
                             })}
                             {!loading && displayPlaylists.length === 0 && (
-                                <div className="p-8 text-center text-sm text-muted-foreground">
+                                <div className="playlist-empty">
                                     {activeTab === 'navimuse' ? '暂无 AI 生成的歌单' : '暂无曲库歌单'}
                                 </div>
                             )}

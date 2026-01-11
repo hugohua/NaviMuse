@@ -1,0 +1,55 @@
+/* ========================================
+   Slider Component Styles
+   ======================================== */
+
+.slider-root {
+    position: relative;
+    display: flex;
+    width: 100%;
+    touch-action: none;
+    user-select: none;
+    align-items: center;
+}
+
+.slider-track {
+    position: relative;
+    height: 0.5rem;
+    width: 100%;
+    flex-grow: 1;
+    overflow: hidden;
+    border-radius: var(--radius-full);
+    background-color: rgba(255, 255, 255, 0.2);
+    cursor: pointer;
+}
+
+.slider-range {
+    position: absolute;
+    height: 100%;
+    background-color: var(--primary);
+}
+
+.slider-thumb {
+    display: block;
+    height: 1rem;
+    width: 1rem;
+    border-radius: var(--radius-full);
+    border: none;
+    background-color: white;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+    transition: transform var(--transition-base);
+    cursor: pointer;
+}
+
+.slider-thumb:hover {
+    transform: scale(1.25);
+}
+
+.slider-thumb:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--background), 0 0 0 4px var(--ring);
+}
+
+.slider-thumb:disabled {
+    pointer-events: none;
+    opacity: 0.5;
+}

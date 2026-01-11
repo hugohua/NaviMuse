@@ -1,248 +1,336 @@
-/* PC-First Vertical Layout */
-/* Basic reset/layout for shell */
-.app-shell {
-  display: flex;
-  width: 100vw;
+/* ========================================
+   App - Main Layout Styles
+   ======================================== */
+
+/* Root Container */
+.app-root {
+  position: relative;
   height: 100vh;
+  width: 100%;
+  background-color: var(--background);
+  color: var(--foreground);
+  overflow: hidden;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.app-root::selection {
+  background-color: rgba(99, 102, 241, 0.2);
+}
+
+/* Main Layout */
+.app-layout {
+  position: absolute;
+  inset: 0;
+  display: flex;
   overflow: hidden;
 }
 
-.main-content-area {
+/* Sidebar */
+.sidebar {
+  display: none;
+  width: 18rem;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: var(--shadow-2xl);
+  background-color: rgba(0, 0, 0, 0.6);
+  border-radius: var(--radius-2xl);
+  margin: 1rem;
+  margin-right: 0;
+  z-index: 20;
+}
+
+@media (min-width: 768px) {
+  .sidebar {
+    display: flex;
+  }
+}
+
+/* Main Content */
+.main-content {
   flex: 1;
+  display: flex;
+  flex-direction: column;
   position: relative;
-  overflow: hidden;
-  /* Scroll logic handled inside */
-  padding-bottom: 90px;
-  /* Space for GlobalPlayer */
-  background-color: var(--bg-main);
+  min-width: 0;
+  background-color: transparent;
 }
 
-/* Updated Container: centered within main content */
-.container {
-  max-width: 800px;
+.scroll-container {
+  flex: 1;
+}
+
+.content-container {
+  max-width: 56rem;
   margin: 0 auto;
-  padding: 20px;
-  min-height: 100vh;
-  /* Ensure full scrollable height */
+  padding: 1.5rem;
   display: flex;
   flex-direction: column;
-  position: relative;
+  gap: 2rem;
+  margin-bottom: 220px;
 }
 
-header {
+@media (min-width: 768px) {
+  .content-container {
+    padding: 2.5rem;
+  }
+}
+
+/* Header */
+.app-header {
+  text-align: center;
   display: flex;
-  justify-content: center;
-  align-items: center;
-  margin-bottom: 20px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 2rem;
 }
 
-h1 {
-  font-size: 28px;
+.app-title {
+  font-size: 2.25rem;
   font-weight: 800;
+  letter-spacing: -0.025em;
+  color: var(--foreground);
+  text-shadow: 0 0 10px rgba(99, 102, 241, 0.5);
   margin: 0;
-  background: var(--primary-gradient);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  letter-spacing: -1px;
 }
 
-.subtitle {
-  font-size: 14px;
-  color: var(--text-sub);
-  margin-left: 10px;
+@media (min-width: 1024px) {
+  .app-title {
+    font-size: 3rem;
+  }
 }
 
-/* Scroll Content Area */
-.scroll-content {
-  flex: 1;
-  padding-bottom: 100px;
-  /* Space for fixed input */
+.app-subtitle {
+  color: var(--muted-foreground);
+  font-weight: 500;
+  margin: 0;
+}
+
+/* Controls Section */
+.controls-section {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-}
-
-/* Controls Row: Mode Switcher & Persona Button */
-.controls-row {
-  display: flex;
-  gap: 16px;
+  gap: 1rem;
   align-items: center;
   justify-content: space-between;
-  /* Distribute space */
+  background-color: var(--card);
+  padding: 1rem;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
 }
 
-/* Mode Switcher Container Override */
-.mode-container {
-  flex: 2;
-  /* Allocate more space to mode switcher */
-  min-width: 280px;
+@media (min-width: 768px) {
+  .controls-section {
+    flex-direction: row;
+    gap: 1rem;
+  }
 }
 
-/* Persona Section overrides */
-.persona-section {
+.mode-section {
   flex: 1;
-  display: flex;
-  justify-content: flex-end;
+  width: 100%;
 }
 
-/* Input Area: Fixed relative to main content area */
-.input-fixed-bottom {
+@media (min-width: 768px) {
+  .mode-section {
+    width: auto;
+  }
+}
+
+.analyze-btn {
+  width: 100%;
+  min-width: 140px;
+  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.3);
+  transition: all var(--transition-slow);
+  border: 1px solid rgba(99, 102, 241, 0.5);
+}
+
+@media (min-width: 768px) {
+  .analyze-btn {
+    width: auto;
+  }
+}
+
+.analyze-btn:hover {
+  box-shadow: 0 4px 25px rgba(99, 102, 241, 0.5);
+  transform: scale(1.05);
+}
+
+.btn-icon {
+  width: 1rem;
+  height: 1rem;
+  margin-right: 0.5rem;
+}
+
+/* Tags Section */
+.tags-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.section-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  margin: 0;
+}
+
+/* Input Area */
+.input-area {
   position: absolute;
-  /* Stick to the bottom of the sticky scroll parent?? No, main-content-area is the scroll parent */
-  position: fixed;
-  /* Must be fixed to viewport to stick to bottom */
-  bottom: 0;
-  left: 280px;
-  /* Sidebar width */
-  width: calc(100% - 280px);
-  /* Adjust width */
-  /* background: rgba(18, 18, 18, 0.95); */
-  backdrop-filter: blur(10px);
-  padding: 20px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  bottom: 6rem;
+  left: 0;
+  right: 0;
+  padding: 1rem;
+  pointer-events: none;
   display: flex;
   justify-content: center;
   z-index: 10;
-  transition: bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Move input up when player is present */
-.app-shell.has-player .input-fixed-bottom {
-  bottom: 90px;
-  /* Play Bar Height */
-  background: rgba(18, 18, 18, 0.95);
-  /* Ensure visibility over content */
-}
-
-/* Ensure content has enough padding */
-.app-shell.has-player .scroll-content {
-  padding-bottom: 190px;
-  /* 100px base + 90px player */
-}
-
-.input-group {
+.input-bar {
   width: 100%;
-  max-width: 800px;
+  max-width: 48rem;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: var(--shadow-2xl);
+  border-radius: var(--radius-full);
+  padding: 0.5rem;
+  pointer-events: auto;
   display: flex;
-  gap: 10px;
-  background: var(--card-bg);
-  padding: 10px;
-  border-radius: var(--radius-lg);
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  gap: 0.5rem;
 }
 
-.input-wrapper {
+.prompt-input {
   flex: 1;
-  display: flex;
-  align-items: center;
-  padding: 0 10px;
-}
-
-input {
-  width: 100%;
+  height: 3rem;
+  padding: 0 1.5rem;
+  border-radius: var(--radius-full);
+  background-color: transparent;
   border: none;
-  background: transparent;
-  font-size: 16px;
-  color: var(--text-main);
+  color: var(--foreground);
+  font-size: 1rem;
   outline: none;
-  padding: 8px 0;
 }
 
-button#send {
-  background: var(--primary);
-  color: white;
-  border: none;
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  font-size: 20px;
-  cursor: pointer;
-  box-shadow: 0 4px 12px rgba(255, 44, 85, 0.3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
+.prompt-input::placeholder {
+  color: rgba(148, 163, 184, 0.7);
 }
 
-button#send:hover {
-  transform: scale(1.05);
-  background: #E02448;
+.prompt-input:focus {
+  box-shadow: none;
 }
 
-button#send:disabled {
-  background: #555;
-  cursor: not-allowed;
-  transform: none;
+.send-btn {
+  height: 3rem !important;
+  width: 3rem !important;
+  border-radius: var(--radius-full) !important;
+  flex-shrink: 0;
+  box-shadow: var(--shadow-lg);
+  transition: all var(--transition-base);
+  background-color: var(--primary) !important;
+  color: var(--primary-foreground) !important;
 }
 
-/* Modal Overlay for Results */
+.send-btn:hover {
+  box-shadow: 0 4px 25px rgba(99, 102, 241, 0.5);
+  background-color: rgba(99, 102, 241, 0.9) !important;
+}
+
+.send-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+/* Modal */
 .modal-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: rgba(0, 0, 0, 0.8);
-  backdrop-filter: blur(5px);
-  z-index: 100;
+  inset: 0;
+  z-index: 50;
+  background-color: hsla(224, 71%, 4%, 0.8);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 20px;
-  animation: fadeIn 0.3s ease;
+  padding: 1rem;
 }
 
 .modal-content {
-  background: #1e1e1e;
   width: 100%;
-  max-width: 600px;
-  max-height: 90vh;
-  border-radius: 16px;
-  overflow-y: auto;
-  position: relative;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-  border: 1px solid #333;
-  animation: slideUp 0.3s ease;
-  /* padding: 20px; */
+  max-width: 42rem;
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-2xl);
+  border-radius: var(--radius-2xl);
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
 }
 
-.modal-close-btn {
+.modal-close {
   position: absolute;
-  top: 15px;
-  right: 15px;
-  background: transparent;
-  border: none;
-  color: #888;
-  font-size: 24px;
-  cursor: pointer;
-  z-index: 101;
+  top: 1rem;
+  right: 1rem;
+  z-index: 10;
 }
 
-.modal-close-btn:hover {
-  color: #171717;
+.close-btn {
+  border-radius: var(--radius-full);
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
+.close-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
 
-  to {
-    opacity: 1;
+.close-icon {
+  font-size: 1.25rem;
+}
+
+.modal-body {
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+/* Queue Panel */
+.queue-panel {
+  display: none;
+  flex-shrink: 0;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  margin: 1rem;
+  margin-left: 0;
+  border-radius: var(--radius-2xl);
+  overflow: hidden;
+  box-shadow: var(--shadow-2xl);
+}
+
+@media (min-width: 768px) {
+  .queue-panel {
+    display: flex;
   }
 }
 
-@keyframes slideUp {
-  from {
-    transform: translateY(20px);
-    opacity: 0;
-  }
+/* Player Container */
+.player-container {
+  position: fixed;
+  bottom: 1rem;
+  left: 1rem;
+  right: 1rem;
+  z-index: 50;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
 
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
+.player-wrapper {
+  width: 100%;
+  max-width: 64rem;
+  pointer-events: auto;
 }

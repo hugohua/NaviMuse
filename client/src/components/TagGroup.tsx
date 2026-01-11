@@ -2,6 +2,7 @@ import React from 'react';
 import { motion, type Variants } from 'framer-motion';
 import type { TagCategory } from '../types';
 import { cn } from '../utils/cn';
+import './TagGroup.css';
 
 interface Props {
     categories: TagCategory[];
@@ -40,12 +41,12 @@ const categoryVariants: Variants = {
 
 export const TagGroup: React.FC<Props> = ({ categories, selectedTags, onToggle }) => {
     if (categories.length === 0) {
-        return <div className="p-4 text-center text-sm text-primary/50 animate-pulse">Loading tags...</div>;
+        return <div className="tag-loading">Loading tags...</div>;
     }
 
     return (
         <motion.div
-            className="space-y-6"
+            className="tag-group"
             initial="hidden"
             animate="visible"
             variants={containerVariants}
@@ -53,12 +54,12 @@ export const TagGroup: React.FC<Props> = ({ categories, selectedTags, onToggle }
             {categories.map((cat) => (
                 <motion.div
                     key={cat.title}
-                    className="space-y-3"
+                    className="tag-category"
                     variants={categoryVariants}
                 >
-                    <div className="text-sm font-medium text-muted-foreground uppercase tracking-wider">{cat.title}</div>
+                    <div className="category-title">{cat.title}</div>
                     <motion.div
-                        className="flex flex-wrap gap-2"
+                        className="tag-list"
                         variants={containerVariants}
                     >
                         {Object.keys(cat.attributes).map((tag) => {
@@ -69,12 +70,7 @@ export const TagGroup: React.FC<Props> = ({ categories, selectedTags, onToggle }
                                     variants={itemVariants}
                                     whileHover={{ scale: 1.05 }}
                                     whileTap={{ scale: 0.95 }}
-                                    className={cn(
-                                        "px-3 py-1.5 rounded-full text-sm font-medium transition-colors cursor-pointer select-none border backdrop-blur-sm",
-                                        isSelected
-                                            ? "bg-primary text-primary-foreground border-primary shadow-[0_0_12px_rgba(99,102,241,0.4)]"
-                                            : "bg-white/5 text-muted-foreground border-white/10 hover:bg-white/10 hover:border-white/20 hover:text-foreground"
-                                    )}
+                                    className={cn("tag-item", isSelected && "tag-item-selected")}
                                     onClick={() => onToggle(tag)}
                                 >
                                     {tag}

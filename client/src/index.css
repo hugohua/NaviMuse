@@ -1,91 +1,1129 @@
-@import "tailwindcss";
+/* ========================================
+   NaviMuse Design System - Vanilla CSS
+   ======================================== */
 
-@layer base {
-  :root {
-    /* Neo-Glass Tech Dark Theme */
-    --background: 224 71% 4%;
-    /* #030712 */
-    --foreground: 210 40% 98%;
-    /* #f8fafc */
+/* ----------------------------------------
+   1. CSS Custom Properties (Design Tokens)
+   ---------------------------------------- */
+:root {
+  /* Colors - Neo-Glass Tech Dark Theme */
+  --background: hsl(224, 71%, 4%);
+  --foreground: hsl(210, 40%, 98%);
 
-    --card: 224 71% 4%;
-    /* Same as bg, rely on glass effects */
-    --card-foreground: 210 40% 98%;
+  --card: hsl(224, 71%, 4%);
+  --card-foreground: hsl(210, 40%, 98%);
 
-    --popover: 224 71% 4%;
-    --popover-foreground: 210 40% 98%;
+  --popover: hsl(224, 71%, 4%);
+  --popover-foreground: hsl(210, 40%, 98%);
 
-    --primary: 244 87% 67%;
-    /* Indigo 500 */
-    --primary-foreground: 210 40% 98%;
+  --primary: hsl(244, 87%, 67%);
+  --primary-foreground: hsl(210, 40%, 98%);
 
-    --secondary: 199 89% 48%;
-    /* Sky 500 */
-    --secondary-foreground: 210 40% 98%;
+  --secondary: hsl(199, 89%, 48%);
+  --secondary-foreground: hsl(210, 40%, 98%);
 
-    --muted: 215 27.9% 16.9%;
-    /* Slate 900 */
-    --muted-foreground: 217.9 10.6% 64.9%;
-    /* Slate 400 */
+  --muted: hsl(215, 27.9%, 16.9%);
+  --muted-foreground: hsl(217.9, 10.6%, 64.9%);
 
-    --accent: 215 27.9% 16.9%;
-    /* Slate 900 */
-    --accent-foreground: 210 40% 98%;
+  --accent: hsl(215, 27.9%, 16.9%);
+  --accent-foreground: hsl(210, 40%, 98%);
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+  --destructive: hsl(0, 62.8%, 30.6%);
+  --destructive-foreground: hsl(210, 40%, 98%);
 
-    --border: 215 27.9% 16.9%;
-    /* Slate 900 */
-    --input: 215 27.9% 16.9%;
-    --ring: 244 87% 67%;
-    /* Indigo 500 */
+  --border: hsl(215, 27.9%, 16.9%);
+  --input: hsl(215, 27.9%, 16.9%);
+  --ring: hsl(244, 87%, 67%);
 
-    --radius: 0.75rem;
+  /* Spacing & Sizing */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1);
+  --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+  --shadow-glow: 0 0 15px rgba(99, 102, 241, 0.3);
+  --shadow-glow-lg: 0 0 20px rgba(99, 102, 241, 0.4);
+
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-base: 200ms ease;
+  --transition-slow: 300ms ease;
+}
+
+/* ----------------------------------------
+   2. Base Styles & Reset
+   ---------------------------------------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "rlig" 1, "calt" 1;
+  line-height: 1.5;
+}
+
+::selection {
+  background-color: rgba(99, 102, 241, 0.2);
+}
+
+/* Scrollbar - Hidden by default */
+::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+/* ----------------------------------------
+   3. Glass Morphism Effects
+   ---------------------------------------- */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: var(--shadow-2xl);
+}
+
+.glass-button {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all var(--transition-slow);
+  box-shadow: var(--shadow-sm);
+}
+
+.glass-button:hover {
+  background: rgba(255, 255, 255, 0.15);
+  box-shadow: var(--shadow-glow);
+}
+
+.glass-button:active {
+  transform: scale(0.95);
+}
+
+/* ----------------------------------------
+   4. Typography
+   ---------------------------------------- */
+.text-glow {
+  text-shadow: 0 0 10px rgba(99, 102, 241, 0.5);
+}
+
+.text-foreground {
+  color: var(--foreground);
+}
+
+.text-muted-foreground {
+  color: var(--muted-foreground);
+}
+
+.text-primary {
+  color: var(--primary);
+}
+
+.text-primary-foreground {
+  color: var(--primary-foreground);
+}
+
+.text-accent-foreground {
+  color: var(--accent-foreground);
+}
+
+.text-destructive {
+  color: var(--destructive);
+}
+
+.font-medium {
+  font-weight: 500;
+}
+
+.font-semibold {
+  font-weight: 600;
+}
+
+.font-bold {
+  font-weight: 700;
+}
+
+.font-extrabold {
+  font-weight: 800;
+}
+
+.text-xs {
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+.text-sm {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.text-base {
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
+
+.text-lg {
+  font-size: 1.125rem;
+  line-height: 1.75rem;
+}
+
+.text-xl {
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+}
+
+.text-2xl {
+  font-size: 1.5rem;
+  line-height: 2rem;
+}
+
+.text-3xl {
+  font-size: 1.875rem;
+  line-height: 2.25rem;
+}
+
+.text-4xl {
+  font-size: 2.25rem;
+  line-height: 2.5rem;
+}
+
+.text-5xl {
+  font-size: 3rem;
+  line-height: 1;
+}
+
+.tracking-tight {
+  letter-spacing: -0.025em;
+}
+
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.text-left {
+  text-align: left;
+}
+
+/* ----------------------------------------
+   5. Layout Utilities
+   ---------------------------------------- */
+.flex {
+  display: flex;
+}
+
+.inline-flex {
+  display: inline-flex;
+}
+
+.hidden {
+  display: none;
+}
+
+.block {
+  display: block;
+}
+
+.grid {
+  display: grid;
+}
+
+.flex-col {
+  flex-direction: column;
+}
+
+.flex-row {
+  flex-direction: row;
+}
+
+.flex-wrap {
+  flex-wrap: wrap;
+}
+
+.flex-1 {
+  flex: 1 1 0%;
+}
+
+.flex-shrink-0 {
+  flex-shrink: 0;
+}
+
+.grow {
+  flex-grow: 1;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.items-start {
+  align-items: flex-start;
+}
+
+.items-end {
+  align-items: flex-end;
+}
+
+.justify-center {
+  justify-content: center;
+}
+
+.justify-between {
+  justify-content: space-between;
+}
+
+.justify-end {
+  justify-content: flex-end;
+}
+
+.gap-0\.5 {
+  gap: 0.125rem;
+}
+
+.gap-1 {
+  gap: 0.25rem;
+}
+
+.gap-1\.5 {
+  gap: 0.375rem;
+}
+
+.gap-2 {
+  gap: 0.5rem;
+}
+
+.gap-3 {
+  gap: 0.75rem;
+}
+
+.gap-4 {
+  gap: 1rem;
+}
+
+/* ----------------------------------------
+   6. Sizing
+   ---------------------------------------- */
+.w-full {
+  width: 100%;
+}
+
+.w-auto {
+  width: auto;
+}
+
+.w-1 {
+  width: 0.25rem;
+}
+
+.w-4 {
+  width: 1rem;
+}
+
+.w-5 {
+  width: 1.25rem;
+}
+
+.w-6 {
+  width: 1.5rem;
+}
+
+.w-7 {
+  width: 1.75rem;
+}
+
+.w-10 {
+  width: 2.5rem;
+}
+
+.w-12 {
+  width: 3rem;
+}
+
+.w-32 {
+  width: 8rem;
+}
+
+.w-64 {
+  width: 16rem;
+}
+
+.h-full {
+  height: 100%;
+}
+
+.h-screen {
+  height: 100vh;
+}
+
+.h-2 {
+  height: 0.5rem;
+}
+
+.h-4 {
+  height: 1rem;
+}
+
+.h-5 {
+  height: 1.25rem;
+}
+
+.h-7 {
+  height: 1.75rem;
+}
+
+.h-9 {
+  height: 2.25rem;
+}
+
+.h-10 {
+  height: 2.5rem;
+}
+
+.h-11 {
+  height: 2.75rem;
+}
+
+.h-12 {
+  height: 3rem;
+}
+
+.h-20 {
+  height: 5rem;
+}
+
+.min-w-0 {
+  min-width: 0;
+}
+
+.min-h-0 {
+  min-height: 0;
+}
+
+.max-w-xl {
+  max-width: 36rem;
+}
+
+.max-w-2xl {
+  max-width: 42rem;
+}
+
+.max-w-3xl {
+  max-width: 48rem;
+}
+
+.max-w-4xl {
+  max-width: 56rem;
+}
+
+.max-w-5xl {
+  max-width: 64rem;
+}
+
+/* ----------------------------------------
+   7. Spacing
+   ---------------------------------------- */
+.p-2 {
+  padding: 0.5rem;
+}
+
+.p-3 {
+  padding: 0.75rem;
+}
+
+.p-4 {
+  padding: 1rem;
+}
+
+.p-6 {
+  padding: 1.5rem;
+}
+
+.p-8 {
+  padding: 2rem;
+}
+
+.px-2 {
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+.px-3 {
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
+}
+
+.px-4 {
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+.px-6 {
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+}
+
+.px-8 {
+  padding-left: 2rem;
+  padding-right: 2rem;
+}
+
+.py-1 {
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+}
+
+.py-2 {
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+.pr-2 {
+  padding-right: 0.5rem;
+}
+
+.pt-2 {
+  padding-top: 0.5rem;
+}
+
+.m-4 {
+  margin: 1rem;
+}
+
+.mx-auto {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.mb-1 {
+  margin-bottom: 0.25rem;
+}
+
+.mb-8 {
+  margin-bottom: 2rem;
+}
+
+.mr-2 {
+  margin-right: 0.5rem;
+}
+
+.mr-4 {
+  margin-right: 1rem;
+}
+
+.ml-0\.5 {
+  margin-left: 0.125rem;
+}
+
+.ml-4 {
+  margin-left: 1rem;
+}
+
+.my-4 {
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+}
+
+.space-y-1>*+* {
+  margin-top: 0.25rem;
+}
+
+.space-y-2>*+* {
+  margin-top: 0.5rem;
+}
+
+.space-y-4>*+* {
+  margin-top: 1rem;
+}
+
+.space-y-8>*+* {
+  margin-top: 2rem;
+}
+
+/* ----------------------------------------
+   8. Borders & Rounded
+   ---------------------------------------- */
+.border {
+  border: 1px solid var(--border);
+}
+
+.border-b {
+  border-bottom: 1px solid var(--border);
+}
+
+.border-l {
+  border-left: 1px solid var(--border);
+}
+
+.border-r {
+  border-right: 1px solid var(--border);
+}
+
+.border-t {
+  border-top: 1px solid var(--border);
+}
+
+.border-transparent {
+  border-color: transparent;
+}
+
+.border-white\/10 {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.border-primary\/30 {
+  border-color: rgba(99, 102, 241, 0.3);
+}
+
+.border-primary\/50 {
+  border-color: rgba(99, 102, 241, 0.5);
+}
+
+.rounded-md {
+  border-radius: var(--radius-md);
+}
+
+.rounded-lg {
+  border-radius: var(--radius-lg);
+}
+
+.rounded-xl {
+  border-radius: var(--radius-xl);
+}
+
+.rounded-2xl {
+  border-radius: var(--radius-2xl);
+}
+
+.rounded-full {
+  border-radius: var(--radius-full);
+}
+
+/* ----------------------------------------
+   9. Background
+   ---------------------------------------- */
+.bg-background {
+  background-color: var(--background);
+}
+
+.bg-card {
+  background-color: var(--card);
+}
+
+.bg-primary {
+  background-color: var(--primary);
+}
+
+.bg-secondary {
+  background-color: var(--secondary);
+}
+
+.bg-muted {
+  background-color: var(--muted);
+}
+
+.bg-accent {
+  background-color: var(--accent);
+}
+
+.bg-destructive {
+  background-color: var(--destructive);
+}
+
+.bg-transparent {
+  background-color: transparent;
+}
+
+.bg-current {
+  background-color: currentColor;
+}
+
+.bg-white\/5 {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.bg-white\/10 {
+  background-color: rgba(255, 255, 255, 0.10);
+}
+
+.bg-white\/15 {
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+.bg-white\/20 {
+  background-color: rgba(255, 255, 255, 0.20);
+}
+
+.bg-black\/60 {
+  background-color: rgba(0, 0, 0, 0.6);
+}
+
+.bg-black\/80 {
+  background-color: rgba(0, 0, 0, 0.8);
+}
+
+.bg-background\/80 {
+  background-color: hsla(224, 71%, 4%, 0.8);
+}
+
+.bg-primary\/20 {
+  background-color: rgba(99, 102, 241, 0.2);
+}
+
+/* ----------------------------------------
+   10. Effects
+   ---------------------------------------- */
+.opacity-0 {
+  opacity: 0;
+}
+
+.opacity-50 {
+  opacity: 0.5;
+}
+
+.opacity-60 {
+  opacity: 0.6;
+}
+
+.opacity-80 {
+  opacity: 0.8;
+}
+
+.opacity-100 {
+  opacity: 1;
+}
+
+.backdrop-blur-sm {
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.backdrop-blur-md {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.backdrop-blur-xl {
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+.backdrop-blur-2xl {
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+}
+
+.shadow-sm {
+  box-shadow: var(--shadow-sm);
+}
+
+.shadow-md {
+  box-shadow: var(--shadow-md);
+}
+
+.shadow-lg {
+  box-shadow: var(--shadow-lg);
+}
+
+.shadow-xl {
+  box-shadow: var(--shadow-xl);
+}
+
+.shadow-2xl {
+  box-shadow: var(--shadow-2xl);
+}
+
+/* ----------------------------------------
+   11. Position
+   ---------------------------------------- */
+.relative {
+  position: relative;
+}
+
+.absolute {
+  position: absolute;
+}
+
+.fixed {
+  position: fixed;
+}
+
+.sticky {
+  position: sticky;
+}
+
+.inset-0 {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+}
+
+.top-4 {
+  top: 1rem;
+}
+
+.right-4 {
+  right: 1rem;
+}
+
+.bottom-4 {
+  bottom: 1rem;
+}
+
+.bottom-24 {
+  bottom: 6rem;
+}
+
+.left-0 {
+  left: 0;
+}
+
+.left-4 {
+  left: 1rem;
+}
+
+.right-0 {
+  right: 0;
+}
+
+.z-10 {
+  z-index: 10;
+}
+
+.z-20 {
+  z-index: 20;
+}
+
+.z-50 {
+  z-index: 50;
+}
+
+/* ----------------------------------------
+   12. Interactivity
+   ---------------------------------------- */
+.cursor-pointer {
+  cursor: pointer;
+}
+
+.pointer-events-none {
+  pointer-events: none;
+}
+
+.pointer-events-auto {
+  pointer-events: auto;
+}
+
+.select-none {
+  user-select: none;
+}
+
+.touch-none {
+  touch-action: none;
+}
+
+/* ----------------------------------------
+   13. Overflow
+   ---------------------------------------- */
+.overflow-hidden {
+  overflow: hidden;
+}
+
+.overflow-auto {
+  overflow: auto;
+}
+
+.overflow-y-auto {
+  overflow-y: auto;
+}
+
+/* ----------------------------------------
+   14. Transitions & Animations
+   ---------------------------------------- */
+.transition-all {
+  transition-property: all;
+  transition-timing-function: ease;
+  transition-duration: var(--transition-base);
+}
+
+.transition-colors {
+  transition-property: color, background-color, border-color;
+  transition-timing-function: ease;
+  transition-duration: var(--transition-base);
+}
+
+.transition-opacity {
+  transition-property: opacity;
+  transition-timing-function: ease;
+  transition-duration: var(--transition-base);
+}
+
+.transition-transform {
+  transition-property: transform;
+  transition-timing-function: ease;
+  transition-duration: var(--transition-base);
+}
+
+.duration-200 {
+  transition-duration: 200ms;
+}
+
+.duration-300 {
+  transition-duration: 300ms;
+}
+
+/* Spin animation */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
   }
 
-  /* Sleek Scrollbar (Hidden/Minimal) */
-  ::-webkit-scrollbar {
-    width: 0px;
-    height: 0px;
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Pulse animation */
+@keyframes pulse {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* ----------------------------------------
+   15. Responsive Utilities
+   ---------------------------------------- */
+@media (min-width: 768px) {
+  .md\:flex {
+    display: flex;
+  }
+
+  .md\:hidden {
     display: none;
-    /* Hide default, will implement custom scroll area if needed */
+  }
+
+  .md\:flex-row {
+    flex-direction: row;
+  }
+
+  .md\:w-auto {
+    width: auto;
+  }
+
+  .md\:p-10 {
+    padding: 2.5rem;
+  }
+
+  .md\:gap-4 {
+    gap: 1rem;
   }
 }
 
-@layer utilities {
-  .glass-panel {
-    @apply bg-white/5 backdrop-blur-xl border border-white/10 shadow-2xl;
-  }
-
-  .glass-button {
-    @apply bg-white/5 hover:bg-white/15 backdrop-blur-md border border-white/10 transition-all duration-300 active:scale-95;
-    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  }
-
-  .glass-button:hover {
-    box-shadow: 0 0 15px rgba(99, 102, 241, 0.3);
-  }
-
-  .text-glow {
-    text-shadow: 0 0 10px rgba(99, 102, 241, 0.5);
+@media (min-width: 1024px) {
+  .lg\:text-5xl {
+    font-size: 3rem;
+    line-height: 1;
   }
 }
 
-@layer base {
-  * {
-    border-color: hsl(var(--border));
-  }
+/* ----------------------------------------
+   16. Hover States
+   ---------------------------------------- */
+.hover\:bg-white\/10:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
 
-  body {
-    background-color: hsl(var(--background));
-    color: hsl(var(--foreground));
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    font-feature-settings: "rlig" 1, "calt" 1;
-  }
+.hover\:bg-white\/15:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+}
 
-  ::selection {
-    background-color: hsl(var(--primary) / 0.2);
-  }
+.hover\:bg-primary\/90:hover {
+  background-color: rgba(99, 102, 241, 0.9);
+}
+
+.hover\:bg-accent:hover {
+  background-color: var(--accent);
+}
+
+.hover\:bg-accent\/80:hover {
+  background-color: rgba(51, 65, 85, 0.8);
+}
+
+.hover\:text-primary:hover {
+  color: var(--primary);
+}
+
+.hover\:text-foreground:hover {
+  color: var(--foreground);
+}
+
+.hover\:text-accent-foreground:hover {
+  color: var(--accent-foreground);
+}
+
+.hover\:text-destructive:hover {
+  color: var(--destructive);
+}
+
+.hover\:text-red-400:hover {
+  color: #f87171;
+}
+
+.hover\:text-red-500:hover {
+  color: #ef4444;
+}
+
+.hover\:border-white\/10:hover {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.hover\:shadow-lg:hover {
+  box-shadow: var(--shadow-lg);
+}
+
+.hover\:scale-105:hover {
+  transform: scale(1.05);
+}
+
+.hover\:scale-125:hover {
+  transform: scale(1.25);
+}
+
+.hover\:scale-y-110:hover {
+  transform: scaleY(1.1);
+}
+
+.group:hover .group-hover\:opacity-100 {
+  opacity: 1;
+}
+
+.group:hover .group-hover\:text-foreground {
+  color: var(--foreground);
+}
+
+.group:hover .group-hover\:text-accent-foreground {
+  color: var(--accent-foreground);
+}
+
+.group:hover .group-hover\:text-muted-foreground\/80 {
+  color: rgba(148, 163, 184, 0.8);
+}
+
+/* ----------------------------------------
+   17. Focus States
+   ---------------------------------------- */
+.focus\:ring-0:focus {
+  box-shadow: none;
+}
+
+.focus-visible\:outline-none:focus-visible {
+  outline: none;
+}
+
+.focus-visible\:ring-2:focus-visible {
+  box-shadow: 0 0 0 2px var(--ring);
+}
+
+.focus-visible\:ring-offset-2:focus-visible {
+  box-shadow: 0 0 0 2px var(--background), 0 0 0 4px var(--ring);
+}
+
+/* ----------------------------------------
+   18. Disabled States
+   ---------------------------------------- */
+.disabled\:pointer-events-none:disabled {
+  pointer-events: none;
+}
+
+.disabled\:opacity-50:disabled {
+  opacity: 0.5;
+}
+
+/* ----------------------------------------
+   19. Miscellaneous
+   ---------------------------------------- */
+.whitespace-nowrap {
+  white-space: nowrap;
+}
+
+.ring-offset-background {
+  --tw-ring-offset-color: var(--background);
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.font-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+}
+
+.shrink-0 {
+  flex-shrink: 0;
+}
+
+.fill-current {
+  fill: currentColor;
+}
+
+.border-none {
+  border: none;
+}
+
+.font-sans {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.selection\:bg-primary\/20::selection {
+  background-color: rgba(99, 102, 241, 0.2);
+}
+
+/* Color utilities */
+.text-red-500 {
+  color: #ef4444;
+}
+
+.text-red-400 {
+  color: #f87171;
 }

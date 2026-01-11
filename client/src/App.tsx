@@ -3,7 +3,6 @@ import { AudioPlayerProvider } from './contexts/AudioPlayerContext';
 import { QueuePanelProvider, useQueuePanel } from './contexts/QueuePanelContext';
 import { GlobalPlayer } from './components/GlobalPlayer';
 import { QueueSidebar } from './components/QueueSidebar';
-// import './App.css'; // Removing App.css
 import { ModeSwitcher } from './components/ModeSwitcher';
 import { TagGroup } from './components/TagGroup';
 import { ResultCard } from './components/ResultCard';
@@ -16,6 +15,7 @@ import { ScrollArea } from './components/ui/scroll-area';
 import { Button } from './components/ui/button';
 import { Sparkles, ArrowRight, Loader2 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
+import './App.css';
 
 function AppContent() {
   const { showPopup } = usePopup();
@@ -128,46 +128,44 @@ function AppContent() {
   const { isQueueOpen } = useQueuePanel();
 
   return (
-    <div className="relative h-screen w-full bg-background text-foreground overflow-hidden font-sans selection:bg-primary/20">
-      <div className="absolute inset-0 flex overflow-hidden">
-        {/* Sidebar - Fix: Added bg-black/60 for better contrast, prevented overlap visual issues */}
+    <div className="app-root">
+      <div className="app-layout">
+        {/* Sidebar */}
         <PlaylistSidebar
-          className="hidden md:flex w-64 flex-shrink-0 glass-panel bg-black/60 backdrop-blur-2xl border-r-0 rounded-2xl ml-4 my-4 z-20 shadow-2xl"
+          className="sidebar"
           refreshTrigger={refreshPlaylists}
           onRefresh={() => setRefreshPlaylists(p => p + 1)}
         />
 
         {/* Main Content */}
-        <div className="flex-1 flex flex-col relative min-w-0 bg-transparent">
-          <ScrollArea className="flex-1">
-            <div className="container max-w-4xl mx-auto p-6 md:p-10 space-y-8" style={{ marginBottom: '220px' }}>
+        <div className="main-content">
+          <ScrollArea className="scroll-container">
+            <div className="content-container">
               {/* Header */}
-              <header className="text-center space-y-2 mb-8">
-                <h1 className="text-4xl font-extrabold tracking-tight lg:text-5xl text-foreground text-glow">
-                  NaviMuse
-                </h1>
-                <p className="text-muted-foreground font-medium">AI Music Curator</p>
+              <header className="app-header">
+                <h1 className="app-title">NaviMuse</h1>
+                <p className="app-subtitle">AI Music Curator</p>
               </header>
 
               {/* Controls */}
-              <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-card p-4 rounded-xl border shadow-sm">
-                <div className="flex-1 w-full md:w-auto">
+              <div className="controls-section">
+                <div className="mode-section">
                   <ModeSwitcher current={mode} onChange={setMode} />
                 </div>
                 <Button
                   variant={analyzingProfile ? "secondary" : "default"}
                   onClick={handleAnalyzeProfile}
                   disabled={analyzingProfile}
-                  className="w-full md:w-auto min-w-[140px] shadow-lg shadow-primary/30 hover:shadow-primary/50 transition-all duration-300 hover:scale-105 border border-primary/50"
+                  className="analyze-btn"
                 >
                   {analyzingProfile ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <Loader2 className="btn-icon animate-spin" />
                       分析中...
                     </>
                   ) : (
                     <>
-                      <Sparkles className="mr-2 h-4 w-4" />
+                      <Sparkles className="btn-icon" />
                       {userProfile ? '更新画像' : '生成画像'}
                     </>
                   )}
@@ -190,8 +188,8 @@ function AppContent() {
               </AnimatePresence>
 
               {/* Tags */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold tracking-tight">Vibe Tags</h3>
+              <div className="tags-section">
+                <h3 className="section-title">Vibe Tags</h3>
                 <TagGroup
                   categories={tagCategories}
                   selectedTags={selectedTags}
@@ -202,11 +200,11 @@ function AppContent() {
           </ScrollArea>
 
           {/* Input Area - Floating Glass Bar */}
-          <div className="absolute bottom-24 left-0 right-0 p-4 pointer-events-none flex justify-center z-10">
-            <div className="w-full max-w-3xl glass-panel rounded-full p-2 pointer-events-auto flex gap-2">
+          <div className="input-area">
+            <div className="input-bar">
               <input
                 type="text"
-                className="flex-1 h-12 px-6 rounded-full bg-transparent border-none focus:ring-0 text-foreground placeholder-muted-foreground/70"
+                className="prompt-input"
                 placeholder="描述当下的心情... (例如：下雨天的爵士乐)"
                 value={prompt}
                 onChange={e => setPrompt(e.target.value)}
@@ -214,11 +212,11 @@ function AppContent() {
               />
               <Button
                 size="icon"
-                className="h-12 w-12 rounded-full shrink-0 shadow-lg hover:shadow-primary/50 transition-all bg-primary hover:bg-primary/90 text-primary-foreground"
+                className="send-btn"
                 onClick={generate}
                 disabled={loading}
               >
-                {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <ArrowRight className="h-5 w-5" />}
+                {loading ? <Loader2 className="send-icon animate-spin" /> : <ArrowRight className="send-icon" />}
               </Button>
             </div>
           </div>
@@ -228,14 +226,14 @@ function AppContent() {
             {(result || loading) && (
               <motion.div
                 key="result-modal"
-                className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex justify-center items-center p-4"
+                className="modal-overlay"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 onClick={() => !loading && setResult(null)}
               >
                 <motion.div
-                  className="w-full max-w-2xl bg-card border border-border shadow-2xl rounded-2xl overflow-hidden glass-panel"
+                  className="modal-content"
                   initial={{ scale: 0.9, y: 50, opacity: 0 }}
                   animate={{ scale: 1, y: 0, opacity: 1 }}
                   exit={{ scale: 0.95, y: 20, opacity: 0 }}
@@ -243,13 +241,13 @@ function AppContent() {
                   onClick={e => e.stopPropagation()}
                 >
                   {result && !loading && (
-                    <div className="absolute top-4 right-4 z-10">
-                      <Button variant="ghost" size="icon" onClick={() => setResult(null)} className="hover:bg-white/10 rounded-full">
-                        <span className="text-xl">×</span>
+                    <div className="modal-close">
+                      <Button variant="ghost" size="icon" onClick={() => setResult(null)} className="close-btn">
+                        <span className="close-icon">×</span>
                       </Button>
                     </div>
                   )}
-                  <div className="max-h-[85vh] overflow-y-auto">
+                  <div className="modal-body">
                     <ResultCard data={result} loading={loading} statusText={statusText} />
                   </div>
                 </motion.div>
@@ -266,7 +264,7 @@ function AppContent() {
               animate={{ width: 320, opacity: 1 }}
               exit={{ width: 0, opacity: 0 }}
               transition={{ duration: 0.3, ease: "easeInOut" }}
-              className="hidden md:flex flex-shrink-0 border-l border-white/10 my-4 mr-4 rounded-2xl overflow-hidden shadow-2xl"
+              className="queue-panel"
             >
               <QueueSidebar />
             </motion.div>
@@ -275,8 +273,8 @@ function AppContent() {
       </div>
 
       {/* Global Player - Always visible at bottom, floating above content */}
-      <div className="fixed bottom-4 left-4 right-4 z-50 flex justify-center pointer-events-none">
-        <div className="w-full max-w-5xl pointer-events-auto">
+      <div className="player-container">
+        <div className="player-wrapper">
           <GlobalPlayer />
         </div>
       </div>

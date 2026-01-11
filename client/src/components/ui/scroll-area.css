@@ -1,0 +1,41 @@
+/* ========================================
+   ScrollArea Component Styles
+   ======================================== */
+
+.scroll-area-root {
+    position: relative;
+    overflow: hidden;
+}
+
+.scroll-area-viewport {
+    height: 100%;
+    width: 100%;
+    border-radius: inherit;
+}
+
+.scroll-bar {
+    display: flex;
+    touch-action: none;
+    user-select: none;
+    transition: background-color var(--transition-base);
+    padding: 1px;
+}
+
+.scroll-bar-vertical {
+    height: 100%;
+    width: 0.625rem;
+    border-left: 1px solid transparent;
+}
+
+.scroll-bar-horizontal {
+    height: 0.625rem;
+    flex-direction: column;
+    border-top: 1px solid transparent;
+}
+
+.scroll-bar-thumb {
+    position: relative;
+    flex: 1;
+    border-radius: var(--radius-full);
+    background-color: var(--border);
+}
