@@ -84,7 +84,58 @@ export class GeminiService implements IAIService {
             return [json as MetadataJSON];
         } catch (error) {
             console.error("[GeminiService] Batch Metadata Generation Failed:", error);
-            throw error;
+        }
+    }
+
+    async rerankSongs(query: string, candidates: any[]): Promise<string[]> {
+        const model = this.genAI.getGenerativeModel({
+            model: this.modelName,
+            generationConfig: {
+                temperature: 0.1,
+                responseMimeType: "application/json"
+            }
+        });
+
+        // Construct simplified candidate list for prompt to save tokens
+        const simplifiedCandidates = candidates.map(c => ({
+            id: c.navidrome_id,
+            title: c.title,
+            artist: c.artist,
+            mood: c.mood,
+            tags: c.tags,
+            description: c.description ? c.description.substring(0, 100) + "..." : ""
+        }));
+
+        const prompt = `
+You are a music search relevance expert. 
+User Query: "${query}"
+
+Rank the following candidate songs based on how well they match the user's intent, mood, and semantic meaning.
+Return a JSON object with a single key "ranked_ids" containing an array of song IDs in descending order of relevance.
+
+Candidates:
+${JSON.stringify(simplifiedCandidates, null, 2)}
+        `.trim();
+
+        try {
+            const result = await model.generateContent(prompt);
+            const response = await result.response;
+            const text = response.text();
+
+            // Clean markdown if present
+            const cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
+            const JSON5 = (await import('json5')).default;
+            const json = JSON5.parse(cleaned);
+
+            if (json.ranked_ids && Array.isArray(json.ranked_ids)) {
+                return json.ranked_ids.map(String);
+            }
+            console.warn("[GeminiService] Rerank returned unexpected format:", json);
+            return candidates.map(c => String(c.navidrome_id));
+
+        } catch (error) {
+            console.error("[GeminiService] Rerank Failed:", error);
+            return candidates.map(c => String(c.navidrome_id));
         }
     }
 }

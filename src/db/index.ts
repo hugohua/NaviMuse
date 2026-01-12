@@ -192,5 +192,30 @@ export const metadataRepo = {
         // Ensure input is Float32Array for better-sqlite3 + sqlite-vec serialization
         const buffer = new Float32Array(embedding);
         return insertVectorStmt.run({ song_id: BigInt(songId), embedding: buffer });
+    },
+    // New Search Method
+    searchVectors: (embedding: number[], options: { limit?: number, is_instrumental?: boolean }): (SongMetadata & { distance: number })[] => {
+        const limit = options.limit || 50;
+        // Over-fetch if filtering to ensure we get enough results
+        const k = options.is_instrumental !== undefined ? limit * 5 : limit;
+        const buffer = new Float32Array(embedding);
+
+        const stmt = db.prepare(`
+            SELECT s.*, v.distance
+            FROM vec_songs v
+            JOIN smart_metadata s ON v.song_id = s.rowid
+            WHERE v.embedding MATCH @embedding
+              AND k = @k
+              AND (@filter_inst IS NULL OR s.is_instrumental = @filter_inst)
+            ORDER BY v.distance ASC
+            LIMIT @limit
+        `);
+
+        return stmt.all({
+            embedding: buffer,
+            k: k,
+            filter_inst: options.is_instrumental === undefined ? null : (options.is_instrumental ? 1 : 0),
+            limit: limit
+        }) as (SongMetadata & { distance: number })[];
     }
 };

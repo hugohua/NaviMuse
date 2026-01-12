@@ -25,6 +25,7 @@
     - [x] 成功集成 Gemini 3.0 Flash Preview
     - [x] 统一 Temperature 配置 (Default: 0.7)
     - [x] 验证通过: 成功生成 10+ 首歌曲元数据
+    - [x] 导出 AI 氛围数据 (Export AI Atmosphere Data)
 
 ## 下一步建议
 - [/] 全量同步并生成元数据 (Background Job Running...)
