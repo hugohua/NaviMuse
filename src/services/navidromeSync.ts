@@ -64,6 +64,7 @@ export class NavidromeSyncService {
                         hash: null, // hash not available from API checking
                     };
                     metadataRepo.saveBasicInfo(meta);
+                    console.log(`[Sync-Debug] Inserted: ${song.title} - ${song.artist} (ID: ${song.id})`);
                     added++;
                 } else {
                     // Check for updates?

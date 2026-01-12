@@ -4,7 +4,7 @@ import { GeminiService } from './GeminiService';
 
 export class AIFactory {
     static getService(): IAIService {
-        const provider = process.env.AI_PROVIDER || 'qwen';
+        const provider = process.env.AI_PROVIDER || 'gemini';
 
         console.log(`[AIFactory] Initializing AI Service with provider: ${provider}`);
 

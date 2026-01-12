@@ -11,6 +11,7 @@
     "build": "npm run build:client && npm run build:server",
     "build:client": "tsc -b client/tsconfig.json && vite build",
     "build:server": "tsc -p tsconfig.server.json",
+    "test": "vitest run",
     "lint": "eslint ."
   },
   "keywords": [
