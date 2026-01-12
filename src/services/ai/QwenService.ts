@@ -85,4 +85,9 @@ export class QwenService implements IAIService {
             throw error;
         }
     }
+    async rerankSongs(query: string, candidates: any[]): Promise<string[]> {
+        // Not implemented for Qwen yet, return original order
+        console.warn("[QwenService] Rerank not implemented, returning original order.");
+        return candidates.map(c => String(c.navidrome_id));
+    }
 }

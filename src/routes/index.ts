@@ -4,12 +4,17 @@ import { PlaylistController } from '../controllers/playlist.controller';
 import { StreamController } from '../controllers/stream.controller';
 import { tagCategories } from '../data/tags';
 
+import { searchRouter } from './search';
+
 const router = Router();
 
 // --- Config / Meta ---
 router.get('/config/tags', (req, res) => {
     res.json(tagCategories);
 });
+
+// --- Search ---
+router.use('/search', searchRouter);
 
 // --- Curator (AI) ---
 router.post('/generate', CuratorController.generate);
