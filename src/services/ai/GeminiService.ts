@@ -69,6 +69,10 @@ export class GeminiService implements IAIService {
 
             // Local parsing for batch
             const cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
+
+            console.log(`[GeminiService Debug] Raw Response Length: ${text.length}`);
+            if (text.length < 500) console.log(`[GeminiService Debug] Raw Response Preview: ${text}`);
+
             // Use dynamic import for json5 or just standard JSON if prompt is good?
             // SonicFlow used json5, let's stick to import
             const JSON5 = (await import('json5')).default;

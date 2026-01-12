@@ -3,10 +3,24 @@ import { metadataRepo, initDB } from '../src/db';
 import { addToQueue, startWorker, metadataQueue } from '../src/services/queue/metadataQueue';
 import { config } from '../src/config';
 
-process.env.AI_PROVIDER = 'gemini'; // Force Gemini for full scan
+
 
 async function main() {
-    console.log("=== Starting Full Metadata Synchronization ===");
+    const args = process.argv.slice(2);
+    const onlySync = args.includes('--only-sync');
+    const onlyProcess = args.includes('--only-process');
+
+    const limitArgIndex = args.indexOf('--limit');
+    const limit = limitArgIndex !== -1 ? parseInt(args[limitArgIndex + 1], 10) : undefined;
+
+    if (onlySync && onlyProcess) {
+        console.error("Error: Cannot use --only-sync and --only-process together.");
+        process.exit(1);
+    }
+
+    console.log("=== Starting Metadata Pipeline ===");
+    console.log(`Mode: ${onlySync ? 'Sync Only' : onlyProcess ? 'Process Only' : 'Full Pipeline'}`);
+    if (limit) console.log(`Limit: ${limit} songs`);
     console.log(`Time: ${new Date().toISOString()}`);
     console.log(`Model: ${process.env.GEMINI_MODEL || "gemini-3-flash-preview"}`);
     console.log(`Temperature: ${config.ai.temperature}`);
@@ -15,13 +29,22 @@ async function main() {
     initDB();
 
     // 2. Sync from Navidrome (Full Scan)
-    console.log("\n[Step 1/3] Syncing from Navidrome...");
-    try {
-        await navidromeSyncService.syncFromNavidrome(); // No limit = full sync
-        console.log("Sync Complete.");
-    } catch (err) {
-        console.error("Sync Failed:", err);
-        process.exit(1);
+    if (!onlyProcess) {
+        console.log("\n[Step 1/3] Syncing from Navidrome...");
+        try {
+            await navidromeSyncService.syncFromNavidrome(limit); // Pass limit if present
+            console.log("Sync Complete.");
+        } catch (err) {
+            console.error("Sync Failed:", err);
+            process.exit(1);
+        }
+    } else {
+        console.log("\n[Step 1/3] Skipping Sync (--only-process active)");
+    }
+
+    if (onlySync) {
+        console.log("Sync only mode completed. Exiting.");
+        process.exit(0);
     }
 
     // 3. Identification of Pending Work
@@ -46,7 +69,7 @@ async function main() {
 
     // Chunk size for Enqueuing (The Queue itself handles batching logic usually, 
     // but here our 'job' IS a batch of 5. So we create jobs of 5 songs.)
-    const JOB_BATCH_SIZE = 5;
+    const JOB_BATCH_SIZE = 10;
 
     // Get all pending again to iterate
     const allPending = metadataRepo.getPendingSongs(100000);

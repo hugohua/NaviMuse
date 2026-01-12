@@ -7,8 +7,8 @@ import { config } from '../../config';
 
 // --- Redis & Queue Configuration ---
 const connection = new IORedis({
-    host: '127.0.0.1', // Assuming local redis for now, or from config
-    port: 6379,
+    host: config.redis.host,
+    port: config.redis.port,
     maxRetriesPerRequest: null,
 });
 

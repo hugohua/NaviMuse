@@ -4,12 +4,12 @@ import * as sqliteVec from 'sqlite-vec';
 import { config } from '../config';
 
 // Ensure data directory exists
-const dbPath = path.join(process.cwd(), 'data', 'navimuse.db');
+const dbPath = process.env.DB_PATH || path.join(process.cwd(), 'data', 'navimuse.db');
 // You might need to ensure 'data' dir exists in main startup logic, 
 // for now we assume it exists or use a simpler path if needed.
 // Attempting to use existing setup if any. 'data' folder appeared in src? No, in root.
 
-export const db = new Database(dbPath, { verbose: console.log });
+export const db = new Database(dbPath);
 db.pragma('journal_mode = WAL');
 
 // Load sqlite-vec extension
@@ -20,89 +20,128 @@ sqliteVec.load(db);
  * 对应数据库中的 smart_metadata 表
  */
 export interface SongMetadata {
-    /** Navidrome 中的唯一 ID (通常是 uuid) */
+    /** Navidrome 原始 UUID (Primary Key) */
     navidrome_id: string;
+    /** 歌名 */
     title: string;
+    /** 歌手 */
     artist: string;
+    /** 专辑名 */
     album?: string;
+    /** 时长（秒） */
     duration?: number;
+    /** 原始文件路径 */
     file_path: string;
-    /** AI 生成的歌曲描述 */
+
+    // --- AI Analysis Data ---
+    /** [AI] 歌曲描述 (Deep Analysis) */
     description?: string;
-    /** JSON 字符串格式的标签数组 */
+    /** [AI] 风格标签 (存储为 JSON String) */
     tags?: string;
-    /** AI 分析的情绪/氛围 */
+    /** [AI] 情绪/氛围 */
     mood?: string;
-    /** 是否为纯音乐 (1: 是, 0: 否) */
+    /** [AI] 是否纯音乐 (1: 是, 0: 否) */
     is_instrumental: number;
-    /** 768维向量数据的 Buffer */
+    /** [AI] 原始向量数据备份 (Binary / Blob) */
     embedding?: Buffer;
-    /** 最后一次分析的时间 (ISO String) */
+    /** 最后一次 AI 分析时间 (ISO8601) */
     last_analyzed?: string;
-    /** 最后一次同步更新的时间 (ISO String) */
+
+    // --- Sync Metadata ---
+    /** 最后一次 Navidrome 同步时间 */
     last_updated?: string;
-    /** 文件哈希用于检测变更 */
+    /** 变更检测 Hash */
     hash?: string | null;
 }
 
 // Initialize Schema immediately to insure prepared statements work
 const createSmartMetadataTable = `
 CREATE TABLE IF NOT EXISTS smart_metadata (
-    navidrome_id TEXT PRIMARY KEY,
-    title TEXT NOT NULL,
-    artist TEXT NOT NULL,
-    album TEXT,
-    duration INTEGER,
-    file_path TEXT,
-    description TEXT,
-    tags TEXT,
-    mood TEXT,
-    is_instrumental INTEGER DEFAULT 0,
-    embedding BLOB,
-    last_analyzed TEXT,
-    last_updated TEXT,
-    hash TEXT
+    navidrome_id TEXT PRIMARY KEY, -- Navidrome 原始 UUID
+    title TEXT NOT NULL,           -- 歌名
+    artist TEXT NOT NULL,          -- 歌手
+    album TEXT,                    -- 专辑名
+    duration INTEGER,              -- 时长（秒）
+    file_path TEXT,                -- 原始文件路径
+    description TEXT,              -- [AI] 歌曲描述 (Deep Analysis)
+    tags TEXT,                     -- [AI] 风格标签 (JSON Array)
+    mood TEXT,                     -- [AI] 情绪/氛围
+    is_instrumental INTEGER DEFAULT 0, -- [AI] 是否纯音乐 (1:yes, 0:no)
+    embedding BLOB,                -- [AI] 原始向量数据备份 (Binary)
+    last_analyzed TEXT,            -- 最后一次 AI 分析时间 (ISO8601)
+    last_updated TEXT,             -- 最后一次 Navidrome 同步时间
+    hash TEXT                      -- 变更检测 Hash
 );
 `;
 
 const createVecTable = `
 CREATE VIRTUAL TABLE IF NOT EXISTS vec_songs USING vec0(
-    song_id INTEGER PRIMARY KEY,
-    embedding float[768]
+    song_id INTEGER PRIMARY KEY,   -- 对应 smart_metadata 的 rowid
+    embedding float[768]           -- 768维向量数据
 );
 `;
 
 // Schema creation logic moved to initDB to prevent side-effects on import
 
+// Prepared Statements
+let insertOrUpdateStmt: Database.Statement;
+let getByIdStmt: Database.Statement;
+let getAllIdsStmt: Database.Statement;
+let updateAnalysisStmt: Database.Statement;
+let getPendingSongsStmt: Database.Statement;
+let getRowIdStmt: Database.Statement;
+let insertVectorStmt: Database.Statement;
+
 export function initDB() {
     try {
-        console.log("Initializing database schema...");
-
-        console.log("Creating smart_metadata table...");
-        db.exec(`
-        CREATE TABLE IF NOT EXISTS smart_metadata (
-            navidrome_id TEXT PRIMARY KEY,
-            title TEXT NOT NULL,
-            artist TEXT NOT NULL,
-            album TEXT,
-            duration INTEGER,
-            file_path TEXT,
-            description TEXT,
-            tags TEXT, 
-            mood TEXT,
-            is_instrumental INTEGER DEFAULT 0,
-            embedding BLOB,
-            last_analyzed TEXT,
-            last_updated TEXT,
-            hash TEXT
-        );
-        `);
-        console.log("smart_metadata table created/verified.");
-
-        console.log("Creating vec_songs virtual table...");
-        db.exec("DROP TABLE IF EXISTS vec_songs;");
+        db.exec(createSmartMetadataTable);
         db.exec(createVecTable);
-        console.log("vec_songs virtual table created (force recreated).");
+
+        // Initialize Prepared Statements
+        insertOrUpdateStmt = db.prepare(`
+            INSERT INTO smart_metadata (
+                navidrome_id, title, artist, album, duration, file_path, 
+                last_updated, hash
+            ) VALUES (
+                @navidrome_id, @title, @artist, @album, @duration, @file_path, 
+                @last_updated, @hash
+            )
+            ON CONFLICT(navidrome_id) DO UPDATE SET
+                title = @title,
+                artist = @artist,
+                album = @album,
+                duration = @duration,
+                file_path = @file_path,
+                last_updated = @last_updated,
+                hash = @hash
+        `);
+
+        getByIdStmt = db.prepare('SELECT * FROM smart_metadata WHERE navidrome_id = ?');
+        getAllIdsStmt = db.prepare('SELECT navidrome_id, hash, last_updated FROM smart_metadata');
+
+        updateAnalysisStmt = db.prepare(`
+            UPDATE smart_metadata SET
+                description = @description,
+                tags = @tags,
+                mood = @mood,
+                is_instrumental = @is_instrumental,
+                last_analyzed = @last_analyzed
+            WHERE navidrome_id = @navidrome_id
+        `);
+
+        getPendingSongsStmt = db.prepare(`
+            SELECT navidrome_id, title, artist 
+            FROM smart_metadata 
+            WHERE last_analyzed IS NULL
+            LIMIT ?
+        `);
+
+        getRowIdStmt = db.prepare('SELECT rowid FROM smart_metadata WHERE navidrome_id = ?');
+
+        insertVectorStmt = db.prepare(`
+            INSERT OR REPLACE INTO vec_songs(song_id, embedding)
+            VALUES (@song_id, @embedding) 
+        `);
 
     } catch (err: any) {
         console.error("Failed to initialize database schema.");
@@ -111,57 +150,6 @@ export function initDB() {
         throw err;
     }
 }
-
-// Prepare statements for performance
-// Now this is safe because table exists
-console.log("Preparing insertOrUpdateStmt...");
-const insertOrUpdateStmt = db.prepare(`
-    INSERT INTO smart_metadata (
-        navidrome_id, title, artist, album, duration, file_path, 
-        last_updated, hash
-    ) VALUES (
-        @navidrome_id, @title, @artist, @album, @duration, @file_path, 
-        @last_updated, @hash
-    )
-    ON CONFLICT(navidrome_id) DO UPDATE SET
-        title = @title,
-        artist = @artist,
-        album = @album,
-        duration = @duration,
-        file_path = @file_path,
-        last_updated = @last_updated,
-        hash = @hash
-`);
-
-console.log("Preparing getByIdStmt...");
-const getByIdStmt = db.prepare('SELECT * FROM smart_metadata WHERE navidrome_id = ?');
-const getAllIdsStmt = db.prepare('SELECT navidrome_id, hash, last_updated FROM smart_metadata');
-
-console.log("Preparing updateAnalysisStmt...");
-console.log("Preparing updateAnalysisStmt...");
-const updateAnalysisStmt = db.prepare(`
-    UPDATE smart_metadata SET
-        description = @description,
-        tags = @tags,
-        mood = @mood,
-        is_instrumental = @is_instrumental,
-        last_analyzed = @last_analyzed
-    WHERE navidrome_id = @navidrome_id
-`);
-
-const getPendingSongsStmt = db.prepare(`
-    SELECT navidrome_id, title, artist 
-    FROM smart_metadata 
-    WHERE last_analyzed IS NULL
-LIMIT ?
-    `);
-
-const getRowIdStmt = db.prepare('SELECT rowid FROM smart_metadata WHERE navidrome_id = ?');
-// Vector Table Insert
-const insertVectorStmt = db.prepare(`
-    INSERT OR REPLACE INTO vec_songs(song_id, embedding)
-    VALUES (@song_id, @embedding) 
-`);
 
 /**
  * 元数据仓库 (Repository)
@@ -203,6 +191,6 @@ export const metadataRepo = {
     saveVector: (songId: number, embedding: number[]) => {
         // Ensure input is Float32Array for better-sqlite3 + sqlite-vec serialization
         const buffer = new Float32Array(embedding);
-        return insertVectorStmt.run({ song_id: songId, embedding: buffer });
+        return insertVectorStmt.run({ song_id: BigInt(songId), embedding: buffer });
     }
 };
