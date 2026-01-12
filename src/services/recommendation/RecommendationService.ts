@@ -1,13 +1,14 @@
 import OpenAI from 'openai';
-import { config } from '../config';
-import { tagCategories } from '../data/tags';
-import { Song, CuratorResponse } from '../types';
+import { config } from '../../config';
+import { tagCategories } from '../../data/tags';
+import { Song, CuratorResponse, UserProfile } from '../../types';
 
 /**
- * LLM 客户端 (基于 OpenAI 兼容接口 - Aliyun Qwen)
+ * 推荐服务 (Recommendation Service)
  * 负责构建 System Prompt, User Prompt 并处理 AI 的结构化输出。
+ * 原 LLMClient
  */
-export class LLMClient {
+export class RecommendationService {
     private client: OpenAI;
 
     constructor() {
@@ -23,7 +24,7 @@ export class LLMClient {
         const candidates = (modelList && modelList.length > 0) ? modelList : [model];
 
         const selected = candidates[Math.floor(Math.random() * candidates.length)];
-        console.log(`[LLM] Selected model for request: ${selected}`);
+        console.log(`[Recommendation] Selected model for request: ${selected}`);
         return selected;
     }
 
@@ -35,7 +36,7 @@ export class LLMClient {
      */
     async curatePlaylist(
         scenePrompt: string,
-        userContextSummary: import('../types').UserProfile,
+        userContextSummary: UserProfile,
         candidates: Song[]
     ): Promise<CuratorResponse> {
 
@@ -147,7 +148,7 @@ ${candidatesCSV}
      * 用户画像分析
      * @param songs 用户近期/常听歌曲列表
      */
-    async analyzeUserProfile(songs: Song[]): Promise<import('../types').UserProfile> {
+    async analyzeUserProfile(songs: Song[]): Promise<UserProfile> {
         // 1. 压缩歌单信息
         const songsCSV = songs.map(s =>
             `Title:${s.title}|Artist:${s.artist}|Genre:${s.genre}|Plays:${s.playCount}`
@@ -199,7 +200,7 @@ ${songsCSV}
 Please generate my User Persona in Strict JSON format.
 `;
 
-        console.log('[LLM] Generating User Profile with Sample:', config.app.profileSampleSize);
+        console.log('[Recommendation] Generating User Profile with Sample:', config.app.profileSampleSize);
 
         const response = await this.client.chat.completions.create({
             model: this.getRandomModel(),
@@ -218,7 +219,7 @@ Please generate my User Persona in Strict JSON format.
         const cleanResult = result.replace(/```json/g, '').replace(/```/g, '').trim();
 
         try {
-            return JSON.parse(cleanResult) as import('../types').UserProfile;
+            return JSON.parse(cleanResult) as UserProfile;
         } catch (e) {
             console.error("Failed to parse User Profile JSON:", cleanResult);
             throw new Error("AI returned invalid Profile JSON");
@@ -227,4 +228,4 @@ Please generate my User Persona in Strict JSON format.
 }
 
 
-export const llmClient = new LLMClient();
+export const recommendationService = new RecommendationService();

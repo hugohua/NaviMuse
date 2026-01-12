@@ -64,3 +64,15 @@ export interface UserProfile {
         message: string;
     };
 }
+
+export interface MetadataJSON {
+    id?: string | number; // Added to support batch response matching
+    vector_description: string; // High-density semantic text
+    tags: string[]; // #Genre #Scene #Mood
+    mood: string;
+    is_instrumental: boolean;
+    // Legacy mapping (optional, or we remove them if code doesn't use them anymore)
+    description?: string;
+    genre?: string;
+    language?: string;
+}

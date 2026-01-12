@@ -1,5 +1,5 @@
 import { navidromeClient } from './navidrome';
-import { llmClient } from './llm';
+import { recommendationService } from './recommendation/RecommendationService';
 import { config } from '../config';
 import { Song, CuratorResponse, DiscoveryMode } from '../types';
 
@@ -48,7 +48,7 @@ export class CuratorService {
         console.log(`[Curator] Analyzed ${topSongs.length} songs for profile.`);
 
         // 4. 调用 LLM
-        return await llmClient.analyzeUserProfile(topSongs);
+        return await recommendationService.analyzeUserProfile(topSongs);
     }
 
     /**
@@ -155,7 +155,7 @@ export class CuratorService {
         }
 
         // 调用 LLM
-        const curation = await llmClient.curatePlaylist(scene, userContext, uniqueCandidates);
+        const curation = await recommendationService.curatePlaylist(scene, userContext, uniqueCandidates);
         console.log(`[Curator] AI selected ${curation.tracks.length} tracks.`);
 
         // --- Step 3: Load (回写歌单) ---

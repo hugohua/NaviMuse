@@ -13,6 +13,7 @@ export class NavidromeClient {
     private baseUrl: string;
     private user: string;
     private pass: string;
+    private readonly BATCH_SIZE = 1; // Sequential to be safe
 
     constructor() {
         this.baseUrl = config.navidrome.url;
@@ -21,7 +22,7 @@ export class NavidromeClient {
 
         this.client = axios.create({
             baseURL: this.baseUrl,
-            timeout: 10000,
+            timeout: 30000,
             // 关键修正: Navidrome/Subsonic 需要 songsId=1&songId=2 格式，不可带 []
             paramsSerializer: params => qs.stringify(params, { arrayFormat: 'repeat' })
         });
@@ -245,7 +246,7 @@ export class NavidromeClient {
             playCount: raw.playCount || 0,
             created: raw.created,
             starred: !!raw.starred,
-            type: raw.suffix,
+            type: raw.suffix, // File extension or type
             path: raw.path
         };
     }
@@ -264,6 +265,60 @@ export class NavidromeClient {
 
         console.log(`[NavidromeClient] Generated Stream URL: ${cleanBase}/rest/stream.view?id=${id}&u=...`);
         return url;
+    }
+    /**
+     * Get all songs by iterating through all albums.
+     * Use with caution on large libraries.
+     */
+    async getAllSongs(onProgress?: (count: number, total: number) => void, limit?: number): Promise<Song[]> {
+        try {
+            // 1. Get all albums (assuming < 50000 for now)
+            // 'alphabeticalByName' is standard
+            // Optimization: If limit is set, don't fetch 50000 albums. 
+            // Average 10 songs per album? fetch limit/2 albums? or limit * 2 to be safe.
+            const albumFetchSize = limit ? Math.max(50, limit * 2) : 50000;
+            const albums = await this.getAlbumList('alphabeticalByName', albumFetchSize);
+
+            if (!albums.length) return [];
+
+            const allSongs: Song[] = [];
+            let processed = 0;
+
+            // 2. Batch process albums to get songs
+            for (let i = 0; i < albums.length; i += this.BATCH_SIZE) {
+                // Check if we hit the limit
+                if (limit && allSongs.length >= limit) break;
+
+                const chunk = albums.slice(i, i + this.BATCH_SIZE);
+                const results = await Promise.all(
+                    chunk.map(async album => {
+                        // console.log(`Fetching album: ${album.title} (${album.id})`); // Verbose log
+                        return this.getAlbum(album.id).catch(e => {
+                            console.warn(`Failed to get album ${album.id}:`, e.message);
+                            return [];
+                        });
+                    })
+                );
+
+                for (const songs of results) {
+                    if (limit && allSongs.length >= limit) break;
+                    allSongs.push(...songs);
+                }
+
+                // Trim if slightly over due to batching
+                if (limit && allSongs.length > limit) {
+                    allSongs.splice(limit);
+                }
+
+                processed += chunk.length;
+                if (onProgress) onProgress(allSongs.length, limit || albums.length * 10); // Estimate total if limiting
+            }
+
+            return allSongs;
+        } catch (e: any) {
+            console.error('Failed to get all songs:', e.message);
+            throw e;
+        }
     }
 }
 
