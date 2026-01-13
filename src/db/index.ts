@@ -471,6 +471,16 @@ export const metadataRepo = {
         });
 
         txn(updates);
+    },
+
+    // Admin / Inspection
+    getSongCount: (): number => {
+        const result = db.prepare('SELECT COUNT(*) as count FROM smart_metadata').get() as { count: number };
+        return result.count;
+    },
+
+    getPaginatedSongs: (limit: number, offset: number): SongMetadata[] => {
+        return db.prepare('SELECT * FROM smart_metadata ORDER BY last_analyzed DESC LIMIT ? OFFSET ?').all(limit, offset) as SongMetadata[];
     }
 };
 

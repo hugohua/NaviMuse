@@ -19,11 +19,21 @@ import { Menu } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useMediaQuery } from './hooks/use-media-query';
 import { useTheme } from './hooks/use-theme';
+import { AdminMetadataView } from './components/AdminMetadataView';
 import './App.css';
+
+import { useHashLocation } from './hooks/use-hash-location';
 
 function AppContent() {
   const { showPopup } = usePopup();
   const isDesktop = useMediaQuery('(min-width: 768px)');
+
+  // Routing Logic
+  const [hash, navigate] = useHashLocation();
+  const showAdmin = hash === '#admin';
+  const setShowAdmin = (show: boolean) => {
+    navigate(show ? '#admin' : '');
+  };
 
   const [mode, setMode] = useState<DiscoveryMode>('default');
 
@@ -113,6 +123,14 @@ function AppContent() {
   const { isQueueOpen, setQueueOpen } = useQueuePanel();
   const { theme } = useTheme();
 
+  if (showAdmin) {
+    return (
+      <div className="app-root relative z-50">
+        <AdminMetadataView onClose={() => setShowAdmin(false)} />
+      </div>
+    );
+  }
+
   return (
     <div className="app-root">
       <div className="app-layout">
@@ -143,9 +161,11 @@ function AppContent() {
                   <img
                     src={theme === 'dark' ? "/logo-dark.svg" : "/logo-light.svg"}
                     alt="NaviMuse Logo"
-                    className="w-12 h-12"
+                    className="w-12 h-12 cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => setShowAdmin(true)}
+                    title="Click for Admin View"
                   />
-                  <h1 className="app-title">NaviMuse</h1>
+                  <h1 className="app-title" onClick={() => setShowAdmin(true)} style={{ cursor: 'pointer' }}>NaviMuse</h1>
                 </div>
                 <p className="app-subtitle">AI Music Curator</p>
               </header>
