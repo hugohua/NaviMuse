@@ -23,7 +23,9 @@ export const QueueController = {
                 dryRun: req.query.dryRun === 'true'
             };
 
+            console.log('[QueueController] Received start request:', JSON.stringify(options));
             const result = await queueManagerService.start(options);
+            console.log('[QueueController] Start result:', JSON.stringify(result));
 
             res.json(result);
         } catch (error: any) {

@@ -8,6 +8,7 @@ export interface Song {
     playCount: number;
     created: string; // ISO date
     starred: boolean;
+    starredAt?: string; // [New] ISO date when starred
     type?: string;
     path?: string;
 }
@@ -82,6 +83,10 @@ export interface MetadataJSON {
         spectrum: "High" | "Mid" | "Low" | "Full";
         spatial: "Dry" | "Wet" | "Huge" | "Intimate";
         energy: number; // 1-10
+        /** [New] 律动特征: Static(静止), Drifting(漂浮), Driving(推进), Explosive(爆发) */
+        tempo_vibe: "Static" | "Drifting" | "Driving" | "Explosive";
+        /** [New] 音色质感: Organic(原生), Metallic(金属/冷), Electronic(电), Grainy(颗粒/复古) */
+        timbre_texture: "Organic" | "Metallic" | "Electronic" | "Grainy";
         mood_coord: string[];
         objects: string[];
         scene_tag?: string; // Derived or explicit

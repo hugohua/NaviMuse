@@ -28,6 +28,12 @@
     - [x] 导出 AI 氛围数据 (Export AI Atmosphere Data)
 
 ## 下一步建议
+- [x] Prompt 测试脚本 (scripts/test-prompts.ts)
+    - [x] 脚本实现与验证
+    - [x] 结果输出至 prompt_test_results.txt
+
+## 下一步建议
+- [ ] 填充更多 Prompt 变体进行测试
 - [/] 全量同步并生成元数据 (Background Job Running...)
     - [x] Navidrome 全量同步
     - [x] 队列任务生成 (修正: 强制切换至 Gemini 3.0)

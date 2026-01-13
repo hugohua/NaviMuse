@@ -1,6 +1,6 @@
 import React from 'react';
 import type { UserProfile } from '../types';
-import { User, Activity, Music2, History, Zap, Waves, ShieldBan } from 'lucide-react';
+import { User, Music2, History, Zap, Waves, ShieldBan } from 'lucide-react';
 import './UserProfileCard.css';
 
 interface Props {

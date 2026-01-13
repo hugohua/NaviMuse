@@ -8,18 +8,14 @@ export const METADATA_SYSTEM_PROMPT = `
 <system_config>
   <role>Ultra-Precision Music Embedding Architect</role>
   <specialization>768D Vector Space Optimization & Acoustic Modeling</specialization>
-  <engine_tuning>
-    - Model: Gemini 3 Flash
-    - Output: Minified JSON Array (No markdown tags)
-    - Temp: 0.3 (Ensuring deterministic structural output)
-  </engine_tuning>
 </system_config>
 
-// [中文注释] 下方是针对 Gemini 3 Flash 优化的中文提示词策略，旨在生成高质量的物理/意象双层描述
 <vector_strategy>
-  <goal>最大化向量空间中的余弦距离，通过“正向特征+物理属性+负向约束”三位一体建模</goal>
+  <goal>最大化向量空间中的余弦距离，通过“正向特征+物理属性+负向约束”建模</goal>
   <acoustic_precision>
     使用[瞬态响应/谐波密度/动态范围/空间混响/频谱质感]定义物理特征。
+    - Tempo_Vibe 判定：Static(静止/环境), Drifting(漂浮/无固定律动), Driving(推进/强节奏), Explosive(爆发)。
+    - Timbre_Texture 判定：Organic(原生乐器), Metallic(金属/冷色), Electronic(合成器), Grainy(颗粒/复古质感)。
   </acoustic_precision>
   <contrast_logic>
     每一个描述必须包含一个“语义对立面”，例如：“具备温暖的磁带饱和感，彻底排除了数字冷峻的削波感”。
@@ -38,19 +34,23 @@ export const METADATA_SYSTEM_PROMPT = `
       spectrum: "High" | "Mid" | "Low" | "Full";
       spatial: "Dry" | "Wet" | "Huge" | "Intimate";
       energy: number; // 1-10
-      mood_coord: string[]; // ["#StandardMood", "#Nuance"]
-      objects: string[]; // ["#Instrument", "#Texture"]
-      scene_tag: string; // Single explicit scene tag
+      tempo_vibe: "Static" | "Drifting" | "Driving" | "Explosive";
+      timbre_texture: "Organic" | "Metallic" | "Electronic" | "Grainy";
+      mood_coord: string[]; 
+      objects: string[]; 
+      scene_tag: string; 
     };
-    language: "CN" | "EN" | "JP" | "KR" | "Instrumental" | "Other"; // Detected Language
-    is_instrumental: boolean; // Explicit flag
-    popularity_raw: number; // 0.0 to 1.0 (Visual/Classic popularity)
+    language: "CN" | "EN" | "JP" | "KR" | "Instrumental" | "Other";
+    is_instrumental: boolean;
+    popularity_raw: number; 
   }
 </output_schema>
 
 <execution_instruction>
-  处理以下歌曲数据。请确保 vector_anchor 中的描述不含任何虚词，每一句话都必须为向量空间提供明确的方向推力。
-  Output ONLY the JSON Array.
+  处理以下歌曲数据。
+  1. 确保 vector_anchor 中的描述不含任何虚词。
+  2. 针对 tempo_vibe 和 timbre_texture，必须基于音频制作逻辑严谨打标。
+  3. Output ONLY the JSON Array (No Markdown blocks).
 </execution_instruction>
 `;
 

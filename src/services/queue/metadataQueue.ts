@@ -13,6 +13,9 @@ const connection = new IORedis({
     maxRetriesPerRequest: null,
 });
 
+// Export connection for use in QueueManager
+export const redisConnection = connection;
+
 export const metadataQueue = new Queue('metadata-generation', {
     connection,
     defaultJobOptions: {
@@ -108,6 +111,8 @@ export const startWorker = () => {
                     spectrum: result.embedding_tags?.spectrum,
                     spatial: result.embedding_tags?.spatial,
                     scene_tag: result.embedding_tags?.scene_tag,
+                    tempo_vibe: result.embedding_tags?.tempo_vibe,
+                    timbre_texture: result.embedding_tags?.timbre_texture,
                     llm: result.llm_model // [AI] Model Name
                 };
 
@@ -160,9 +165,46 @@ export const startWorker = () => {
             console.log(`[Worker] Job ${job.id} Complete. Updated ${batchData.length}/${songs.length}.`);
             return { success: true, count: batchData.length };
 
-        } catch (error) {
+        } catch (error: any) {
             console.error(`[Worker] Job ${job.id} Failed:`, error);
-            // Mark as FAILED
+
+            // --- Circuit Breaker Logic (Smart Quota Handling) ---
+            const errorMsg = (error.message || '').toLowerCase();
+            const isRateLimit = errorMsg.includes('429') || errorMsg.includes('rate limit') || errorMsg.includes('quota');
+            const isDailyQuota = errorMsg.includes('quota exceeded') || errorMsg.includes('limit exceeded') || errorMsg.includes('resource_exhausted');
+
+            if (isRateLimit) {
+                // Determine Pause Duration
+                let pauseDurationMs = 2 * 60 * 1000; // Default: 2 Minutes (Level 1: Cool Down)
+                let pauseReason = "Rate Limit (Transient)";
+
+                if (isDailyQuota) {
+                    // Level 2: Daily Quota Exhausted -> Sleep until tomorrow 08:00
+                    const now = new Date();
+                    const tomorrow = new Date(now);
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    tomorrow.setHours(8, 0, 0, 0); // 08:00 AM next day
+                    pauseDurationMs = tomorrow.getTime() - now.getTime();
+                    pauseReason = "Daily Quota Exhausted";
+                }
+
+                console.warn(`[Worker] ⚠️ Triggering Circuit Breaker: ${pauseReason}`);
+                console.warn(`[Worker] Pausing Queue for ${(pauseDurationMs / 60000).toFixed(1)} minutes...`);
+
+                try {
+                    await metadataQueue.pause();
+
+                    // Set Auto-Resume Time in Redis
+                    const resumeTime = Date.now() + pauseDurationMs;
+                    await connection.set('navimuse:queue:resume_at', String(resumeTime));
+
+                } catch (e) {
+                    console.error("[Worker] Failed to pause queue:", e);
+                }
+            }
+            // ----------------------------------------------------
+
+            // Mark as FAILED in DB (so we know it didn't finish)
             try {
                 metadataRepo.runTransaction(() => {
                     for (const song of songs) {
@@ -176,7 +218,7 @@ export const startWorker = () => {
         connection,
         concurrency: 1, // Sequential
         limiter: {
-            max: 3, // 2 Jobs × 2 Calls = 4 RPM (< 5 RPM 免费层限制)
+            max: 4, // 2 Jobs × 2 Calls = 8 RPM (< 15 RPM 免费层限制)
             duration: 60000 // 1 Minute
         }
     });

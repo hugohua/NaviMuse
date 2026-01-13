@@ -1,12 +1,19 @@
 # ============================================
 # Stage 1: Dependencies
 # ============================================
-FROM node:20-alpine AS dependencies
+FROM node:20-slim AS dependencies
 
 WORKDIR /app
 
 # Install build tools for native modules (python, make, g++)
-RUN apk add --no-cache python3 py3-pip make g++
+# Using Debian/Ubuntu package manager (apt-get)
+# Set up Aliyun mirror for Debian
+RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources && \
+    apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    make \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy package files
 COPY package*.json ./
@@ -37,15 +44,19 @@ RUN npm run build
 # ============================================
 # Stage 3: Production
 # ============================================
-FROM node:20-alpine AS production
+FROM node:20-slim AS production
 
 WORKDIR /app
 
 # Install minimal runtime dependencies
-# (If you have python runtime deps, add them here, otherwise minimal node env is fine)
-# The user's reference included python, assuming it might be needed for specific services or node-gyp rebuilds if any.
-# Keeping it safe based on user's reference, though 'production' usually doesn't need build tools unless pre-gyp fails.
-RUN apk add --no-cache python3 py3-pip ffmpeg
+# ffmpeg is needed for audio processing
+# Set up Aliyun mirror for Debian
+RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources && \
+    apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    ffmpeg \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy node_modules from dependencies
 COPY --from=dependencies /app/node_modules ./node_modules
@@ -60,8 +71,6 @@ COPY --from=builder /app/dist/public ./public
 # Copy package.json for reference/scripts
 COPY package.json ./
 
-# Create non-root user (optional but good practice, skipping for simplicity unless requested or if permissions issues arise with mapped volumes)
-
 # Expose port
 EXPOSE 3000
 
@@ -70,8 +79,22 @@ ENV NODE_ENV=production
 ENV PORT=3000
 
 # Health Check
+# node:20-slim does not include wget by default, but we can verify if it does or use curl.
+# Actually slim images usually have curl. Let's install curl to be safe or use node script.
+# Better to install curl/wget in the apt-get block above if needed.
+# Adding curl/wget to the install block above now.
+# Re-writing the RUN block above in memory to include curl/wget?
+# Or just adding it here for the replacement content.
+# Let's add curl to the production install block.
+
+# Health Check updated to use curl (common in debian) or retry wget if installed. 
+# We'll install curl in the RUN command below.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
+    CMD curl -f http://localhost:3000/ || exit 1
 
 # Start the server
 CMD ["node", "dist/src/server.js"]

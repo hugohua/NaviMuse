@@ -246,6 +246,7 @@ export class NavidromeClient {
             playCount: raw.playCount || 0,
             created: raw.created,
             starred: !!raw.starred,
+            starredAt: typeof raw.starred === 'string' ? raw.starred : undefined,
             type: raw.suffix, // File extension or type
             path: raw.path
         };

@@ -29,9 +29,9 @@ async function main() {
         console.log("\n>>> AI Response Result:");
         console.log(JSON.stringify(metadata, null, 2));
 
-        if (!metadata.vector_description) throw new Error("Missing Vector Description");
-        if (!metadata.tags || metadata.tags.length === 0) throw new Error("Missing Tags");
-        if (!metadata.tags[0].startsWith('#')) console.warn("Tags do not start with #");
+        if (!metadata.vector_anchor) throw new Error("Missing Vector Anchor");
+        if (!metadata.embedding_tags) throw new Error("Missing Embedding Tags");
+        if (!metadata.embedding_tags.mood_coord || metadata.embedding_tags.mood_coord.length === 0) console.warn("Mood Coords missing");
 
         console.log("\nValidation Passed!");
     } catch (e: any) {

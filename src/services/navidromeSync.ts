@@ -11,7 +11,9 @@ export class NavidromeSyncService {
      * 4. Update existing songs if changed (updated_at mismatch) and mark as pending.
      */
     async syncFromNavidrome(limit?: number) {
-        console.log('[Sync] Starting Navidrome sync...');
+        console.log(`[NavidromeSync] Starting sync (limit=${limit || 'ALL'})...`);
+        const pageSize = 100;
+        let offset = 0;
         const startTime = Date.now();
 
         // 1. Fetch all songs (remote)

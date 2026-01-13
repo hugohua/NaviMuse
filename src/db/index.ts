@@ -3,17 +3,21 @@ import path from 'path';
 import * as sqliteVec from 'sqlite-vec';
 import { config } from '../config';
 
+
 // Ensure data directory exists
 const dbPath = process.env.DB_PATH || path.join(process.cwd(), 'data', 'navimuse.db');
-// You might need to ensure 'data' dir exists in main startup logic, 
-// for now we assume it exists or use a simpler path if needed.
-// Attempting to use existing setup if any. 'data' folder appeared in src? No, in root.
+console.log(`[DB] Initializing Database at: ${dbPath} (CWD: ${process.cwd()})`);
 
 export const db = new Database(dbPath);
 db.pragma('journal_mode = WAL');
 
 // Load sqlite-vec extension
-sqliteVec.load(db);
+try {
+    sqliteVec.load(db);
+    console.log('[DB] sqlite-vec extension loaded successfully.');
+} catch (error: any) {
+    console.error('[DB] Failed to load sqlite-vec extension:', error);
+}
 
 /**
  * 歌曲元数据接口
@@ -59,6 +63,10 @@ export interface SongMetadata {
     spatial?: string;
     /** [AI - New] 场景标签 */
     scene_tag?: string;
+    /** [AI - New] 律动特征 */
+    tempo_vibe?: string;
+    /** [AI - New] 音色质感 */
+    timbre_texture?: string;
     /** [AI - New] 生成该元数据的 AI 模型名称 */
     llm?: string;
 
@@ -97,6 +105,8 @@ CREATE TABLE IF NOT EXISTS smart_metadata (
     spectrum TEXT,                 -- [AI] 频谱特征
     spatial TEXT,                  -- [AI] 空间特征
     scene_tag TEXT,                -- [AI] 场景标签
+    tempo_vibe TEXT,               -- [AI - New 2026.01] 律动特征
+    timbre_texture TEXT,           -- [AI - New 2026.01] 音色质感
     llm TEXT,                      -- [AI] 生成该元数据的 AI 模型名称
 
     last_analyzed TEXT,            -- 最后一次 AI 分析时间 (ISO8601)
@@ -141,6 +151,8 @@ CREATE VIRTUAL TABLE IF NOT EXISTS fts_metadata USING fts5(
     album, 
     description, 
     scene_tag,
+    tempo_vibe,
+    timbre_texture,
     content='smart_metadata', 
     content_rowid='rowid'
 );
@@ -158,8 +170,9 @@ const MIGRATIONS = [
     `ALTER TABLE smart_metadata ADD COLUMN processing_status TEXT DEFAULT 'PENDING';`,
     `CREATE INDEX IF NOT EXISTS idx_smart_metadata_status ON smart_metadata(processing_status);`,
     `CREATE INDEX IF NOT EXISTS idx_smart_metadata_last_analyzed ON smart_metadata(last_analyzed);`,
-    `CREATE INDEX IF NOT EXISTS idx_smart_metadata_title_artist ON smart_metadata(title, artist);`
-
+    `CREATE INDEX IF NOT EXISTS idx_smart_metadata_title_artist ON smart_metadata(title, artist);`,
+    `ALTER TABLE smart_metadata ADD COLUMN tempo_vibe TEXT;`,
+    `ALTER TABLE smart_metadata ADD COLUMN timbre_texture TEXT;`
 ];
 
 // Schema creation logic moved to initDB to prevent side-effects on import
@@ -235,6 +248,8 @@ export function initDB() {
                 spectrum = @spectrum,
                 spatial = @spatial,
                 scene_tag = @scene_tag,
+                tempo_vibe = @tempo_vibe,
+                timbre_texture = @timbre_texture,
                 llm = @llm,
                 last_analyzed = @last_analyzed
             WHERE navidrome_id = @navidrome_id
@@ -299,7 +314,7 @@ export const metadataRepo = {
     saveBasicInfo: (info: SongMetadata) => {
         return insertOrUpdateStmt.run(info);
     },
-    updateAnalysis: (id: string, result: { description: string, tags: string[], mood: string, is_instrumental: boolean, analysis_json?: string, energy_level?: number, visual_popularity?: number, language?: string, spectrum?: string, spatial?: string, scene_tag?: string, llm?: string }) => {
+    updateAnalysis: (id: string, result: { description: string, tags: string[], mood: string, is_instrumental: boolean, analysis_json?: string, energy_level?: number, visual_popularity?: number, language?: string, spectrum?: string, spatial?: string, scene_tag?: string, tempo_vibe?: string, timbre_texture?: string, llm?: string }) => {
         return updateAnalysisStmt.run({
             navidrome_id: id,
             description: result.description,
@@ -313,6 +328,8 @@ export const metadataRepo = {
             spectrum: result.spectrum,
             spatial: result.spatial,
             scene_tag: result.scene_tag,
+            tempo_vibe: result.tempo_vibe,
+            timbre_texture: result.timbre_texture,
             llm: result.llm,
             last_analyzed: new Date().toISOString()
         });
@@ -324,7 +341,20 @@ export const metadataRepo = {
         return getAllIdsStmt.all() as any[];
     },
     getPendingSongs: (limit: number): { navidrome_id: string, title: string, artist: string }[] => {
-        return getPendingSongsStmt.all(limit) as any[];
+        console.log(`[DB-Debug] getPendingSongs called with limit: ${limit} (type: ${typeof limit})`);
+        try {
+            // Raw count check
+            const count = db.prepare('SELECT count(*) as c FROM smart_metadata').get() as any;
+            const pending = db.prepare('SELECT count(*) as c FROM smart_metadata WHERE last_analyzed IS NULL').get() as any;
+            console.log(`[DB-Debug] Total rows: ${count.c}, Pending rows: ${pending.c}`);
+
+            const result = getPendingSongsStmt.all(limit) as any[];
+            console.log(`[DB-Debug] Statement returned ${result.length} rows`);
+            return result;
+        } catch (e: any) {
+            console.error('[DB-Debug] Error in getPendingSongs:', e);
+            return [];
+        }
     },
     // Vector search support
     getSongRowId: (navidromeId: string): number | undefined => {
@@ -395,6 +425,8 @@ export const metadataRepo = {
                 spectrum = @spectrum,
                 spatial = @spatial,
                 scene_tag = @scene_tag,
+                tempo_vibe = @tempo_vibe,
+                timbre_texture = @timbre_texture,
                 llm = @llm,
                 last_analyzed = @last_analyzed,
                 processing_status = 'COMPLETED'
@@ -420,6 +452,8 @@ export const metadataRepo = {
                     spectrum: item.metaUpdate.spectrum,
                     spatial: item.metaUpdate.spatial,
                     scene_tag: item.metaUpdate.scene_tag,
+                    tempo_vibe: item.metaUpdate.tempo_vibe,
+                    timbre_texture: item.metaUpdate.timbre_texture,
                     llm: item.metaUpdate.llm,
                     last_analyzed: new Date().toISOString()
                 });
