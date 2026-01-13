@@ -45,6 +45,43 @@ export class GeminiService implements IAIService {
         console.log(`[GeminiService] Initialized with Model: ${this.modelName}`);
     }
 
+    /**
+     * 解析并记录 Gemini API 429 错误中的配额详情
+     * 帮助分析 RPM (每分钟) 和 RPD (每日) 限额策略
+     */
+    private logQuotaDetails(errorDetails: any[]) {
+        console.log('\n========== [Gemini Quota Details] ==========');
+
+        for (const detail of errorDetails) {
+            if (detail['@type']?.includes('QuotaFailure')) {
+                const violations = detail.violations || [];
+                for (const v of violations) {
+                    const metric = v.quotaMetric || 'Unknown';
+                    const quotaId = v.quotaId || 'Unknown';
+                    const quotaValue = v.quotaValue || 'Unknown';
+                    const dimensions = v.quotaDimensions || {};
+
+                    // 解析配额类型
+                    let quotaType = 'Unknown';
+                    if (quotaId.includes('PerMinute')) quotaType = 'RPM (每分钟)';
+                    else if (quotaId.includes('PerDay')) quotaType = 'RPD (每日)';
+                    else if (quotaId.includes('FreeTier')) quotaType = 'Free Tier';
+
+                    console.log(`[Quota] Type: ${quotaType}`);
+                    console.log(`[Quota] Metric: ${metric}`);
+                    console.log(`[Quota] Limit: ${quotaValue}`);
+                    console.log(`[Quota] Model: ${dimensions.model || 'Unknown'}`);
+                    console.log(`[Quota] ID: ${quotaId}`);
+                }
+            } else if (detail['@type']?.includes('RetryInfo')) {
+                const retryDelay = detail.retryDelay || 'Unknown';
+                console.log(`[Quota] Suggested Retry After: ${retryDelay}`);
+            }
+        }
+
+        console.log('=============================================\n');
+    }
+
     async generateMetadata(artist: string, title: string): Promise<MetadataJSON> {
         const result = await this.generateBatchMetadata([{ id: "req_1", title, artist }]);
         return result[0];
@@ -88,8 +125,14 @@ export class GeminiService implements IAIService {
                 ...(json as MetadataJSON),
                 llm_model: this.modelName
             }];
-        } catch (error) {
+        } catch (error: any) {
             console.error("[GeminiService] Batch Metadata Generation Failed:", error);
+
+            // Parse and log quota details from 429 errors
+            if (error.status === 429 && error.errorDetails) {
+                this.logQuotaDetails(error.errorDetails);
+            }
+
             throw error; // Re-throw to trigger Circuit Breaker in Worker
         }
     }
