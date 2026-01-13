@@ -36,13 +36,13 @@ interface MetadataJobData {
 }
 
 // --- Worker Implementation ---
-// Gemini Free Tier: 15 RPM
-// Optimizing for Batch:
+// Gemini Free Tier (2025.12 更新后): 5 RPM, 20-100 RPD
+// 每个 Job 的 API 调用:
 // 1. Generate Metadata Batch (1 API Call)
 // 2. Generate Embedding Batch (1 API Call)
 // Total: 2 Calls per Job.
-// Limiter: With 3 songs/job, max 15 RPM => 7 Jobs/min => 21 songs/min.
-// Let's constrain to 5 Jobs/min for safety (10 calls/min).
+// Limiter: 2 Jobs/min × 2 = 4 RPM (< 5 RPM 限制)
+// 吞吐量: 每分钟 20 首歌, 每小时 1200 首
 
 export const startWorker = () => {
     const worker = new Worker<MetadataJobData>('metadata-generation', async (job) => {
@@ -50,6 +50,13 @@ export const startWorker = () => {
         console.log(`[Worker] Processing Job ${job.id} (Correlation: ${correlationId}) - ${songs.length} songs`);
 
         try {
+            // 0. Mark as Processing
+            metadataRepo.runTransaction(() => {
+                for (const song of songs) {
+                    metadataRepo.updateStatus(song.navidrome_id, 'PROCESSING');
+                }
+            });
+
             // 1. Get AI Service
             const aiService = AIFactory.getService();
             const embeddingService = new EmbeddingService();
@@ -131,42 +138,45 @@ export const startWorker = () => {
                 }
             }
 
-            // --- Phase 4: Commit to DB ---
-            let successCount = 0;
+            // --- Phase 4: Commit to DB (Batch & Transaction) ---
             let vecIndex = 0;
-
-            for (const update of updates) {
-                try {
-                    // Update Metadata
-                    metadataRepo.updateAnalysis(update.songId, update.metaUpdate);
-
-                    // Update Vector if available
-                    if (update.vectorText && vectors[vecIndex]) {
-                        const vector = vectors[vecIndex];
-                        const rowId = metadataRepo.getSongRowId(update.songId);
-                        if (rowId) {
-                            metadataRepo.saveVector(rowId, vector);
-                        }
-                        vecIndex++;
-                    }
-                    successCount++;
-                } catch (e) {
-                    console.error(`DB Update Failed for ${update.songId}`, e);
+            const batchData = updates.map(u => {
+                let vector: number[] | undefined = undefined;
+                if (u.vectorText && vectors[vecIndex]) {
+                    vector = vectors[vecIndex];
+                    vecIndex++;
                 }
+                return {
+                    songId: u.songId,
+                    metaUpdate: u.metaUpdate,
+                    vector: vector
+                };
+            });
+
+            if (batchData.length > 0) {
+                metadataRepo.saveBatchAnalysis(batchData);
             }
 
-            console.log(`[Worker] Job ${job.id} Complete. Updated ${successCount}/${songs.length}.`);
-            return { success: true, count: successCount };
+            console.log(`[Worker] Job ${job.id} Complete. Updated ${batchData.length}/${songs.length}.`);
+            return { success: true, count: batchData.length };
 
         } catch (error) {
             console.error(`[Worker] Job ${job.id} Failed:`, error);
+            // Mark as FAILED
+            try {
+                metadataRepo.runTransaction(() => {
+                    for (const song of songs) {
+                        metadataRepo.updateStatus(song.navidrome_id, 'FAILED');
+                    }
+                });
+            } catch (e) { /* ignore loop error */ }
             throw error;
         }
     }, {
         connection,
         concurrency: 1, // Sequential
         limiter: {
-            max: 6, // 6 Jobs * 2 Calls = 12 Req/Min (< 15 Limit)
+            max: 3, // 2 Jobs × 2 Calls = 4 RPM (< 5 RPM 免费层限制)
             duration: 60000 // 1 Minute
         }
     });
@@ -186,3 +196,83 @@ export const addToQueue = async (songs: MetadataJobData['songs']) => {
         songs
     });
 };
+
+// --- Queue Control Methods ---
+// 用于 API 接口控制队列运行状态
+
+/** 当前 Worker 实例引用 */
+let workerInstance: ReturnType<typeof startWorker> | null = null;
+
+/**
+ * 暂停队列处理
+ * 注意：暂停后队列中的任务不会被清除，只是暂停消费
+ */
+export const pauseQueue = async (): Promise<void> => {
+    await metadataQueue.pause();
+    console.log('[Queue] Queue paused.');
+};
+
+/**
+ * 恢复队列处理
+ */
+export const resumeQueue = async (): Promise<void> => {
+    await metadataQueue.resume();
+    console.log('[Queue] Queue resumed.');
+};
+
+/**
+ * 清空队列中的所有任务
+ * 包括等待中、延迟中的任务
+ */
+export const clearQueue = async (): Promise<{ clearedJobs: number }> => {
+    // 获取当前任务数量
+    const counts = await metadataQueue.getJobCounts();
+    const totalBefore = counts.waiting + counts.delayed + counts.active;
+
+    // 清空不同状态的任务
+    await metadataQueue.drain(); // 清空等待中的任务
+    await metadataQueue.clean(0, 1000, 'delayed'); // 清空延迟任务
+    await metadataQueue.clean(0, 1000, 'failed');  // 清空失败任务
+
+    console.log(`[Queue] Cleared ${totalBefore} jobs.`);
+    return { clearedJobs: totalBefore };
+};
+
+/**
+ * 获取队列详细状态
+ */
+export interface QueueStatus {
+    isPaused: boolean;
+    isWorkerRunning: boolean;
+    activeJobs: number;
+    waitingJobs: number;
+    completedJobs: number;
+    failedJobs: number;
+    delayedJobs: number;
+}
+
+export const getQueueStatus = async (): Promise<QueueStatus> => {
+    const [counts, isPaused] = await Promise.all([
+        metadataQueue.getJobCounts(),
+        metadataQueue.isPaused()
+    ]);
+
+    return {
+        isPaused,
+        isWorkerRunning: workerInstance !== null,
+        activeJobs: counts.active,
+        waitingJobs: counts.waiting,
+        completedJobs: counts.completed || 0,
+        failedJobs: counts.failed,
+        delayedJobs: counts.delayed
+    };
+};
+
+/**
+ * 获取/设置 Worker 实例引用
+ */
+export const setWorkerInstance = (worker: ReturnType<typeof startWorker> | null) => {
+    workerInstance = worker;
+};
+
+export const getWorkerInstance = () => workerInstance;

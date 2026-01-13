@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { CuratorController } from '../controllers/curator.controller';
 import { PlaylistController } from '../controllers/playlist.controller';
 import { StreamController } from '../controllers/stream.controller';
+import { QueueController } from '../controllers/queue.controller';
 import { tagCategories } from '../data/tags';
 
 import { searchRouter } from './search';
@@ -31,5 +32,12 @@ router.delete('/songs/:id/star', PlaylistController.unstarSong);
 
 // --- Stream Proxy ---
 router.get('/stream/:id', StreamController.streamSong);
+
+// --- Queue Management ---
+router.post('/queue/start', QueueController.start);
+router.post('/queue/pause', QueueController.pause);
+router.post('/queue/resume', QueueController.resume);
+router.post('/queue/stop', QueueController.stop);
+router.get('/queue/status', QueueController.status);
 
 export const apiRouter = router;

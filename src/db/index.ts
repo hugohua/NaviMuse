@@ -65,6 +65,9 @@ export interface SongMetadata {
     /** 最后一次 AI 分析时间 (ISO8601) */
     last_analyzed?: string;
 
+    /** [System] 处理状态 (PENDING, PROCESSING, COMPLETED, FAILED) */
+    processing_status?: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+
     // --- Sync Metadata ---
     /** 最后一次 Navidrome 同步时间 */
     last_updated?: string;
@@ -98,8 +101,10 @@ CREATE TABLE IF NOT EXISTS smart_metadata (
 
     last_analyzed TEXT,            -- 最后一次 AI 分析时间 (ISO8601)
     last_updated TEXT,             -- 最后一次 Navidrome 同步时间
-    hash TEXT                      -- 变更检测 Hash
+    hash TEXT,                     -- 变更检测 Hash
+    processing_status TEXT DEFAULT 'PENDING' -- [System] 处理状态
 );
+
 `;
 
 const createVecTable = `
@@ -149,7 +154,12 @@ const MIGRATIONS = [
     `ALTER TABLE smart_metadata ADD COLUMN spectrum TEXT;`,
     `ALTER TABLE smart_metadata ADD COLUMN spatial TEXT;`,
     `ALTER TABLE smart_metadata ADD COLUMN scene_tag TEXT;`,
-    `ALTER TABLE smart_metadata ADD COLUMN llm TEXT;`
+    `ALTER TABLE smart_metadata ADD COLUMN llm TEXT;`,
+    `ALTER TABLE smart_metadata ADD COLUMN processing_status TEXT DEFAULT 'PENDING';`,
+    `CREATE INDEX IF NOT EXISTS idx_smart_metadata_status ON smart_metadata(processing_status);`,
+    `CREATE INDEX IF NOT EXISTS idx_smart_metadata_last_analyzed ON smart_metadata(last_analyzed);`,
+    `CREATE INDEX IF NOT EXISTS idx_smart_metadata_title_artist ON smart_metadata(title, artist);`
+
 ];
 
 // Schema creation logic moved to initDB to prevent side-effects on import
@@ -229,6 +239,10 @@ export function initDB() {
                 last_analyzed = @last_analyzed
             WHERE navidrome_id = @navidrome_id
         `);
+
+        // Update just the status
+        const updateStatusStmt = db.prepare(`UPDATE smart_metadata SET processing_status = ? WHERE navidrome_id = ?`);
+
 
         getPendingSongsStmt = db.prepare(`
             SELECT navidrome_id, title, artist 
@@ -351,6 +365,78 @@ export const metadataRepo = {
             filter_inst: options.is_instrumental === undefined ? null : (options.is_instrumental ? 1 : 0),
             limit: limit
         }) as (SongMetadata & { distance: number })[];
+    },
+
+    // Batch & Transaction Support
+    runTransaction<T>(fn: () => T): T {
+        try {
+            return db.transaction(fn)() as T;
+        } catch (error) {
+            console.error('[DB] Transaction Failed:', error);
+            throw error; // Re-throw to let worker handle it (and mark FAILED)
+        }
+    },
+
+    updateStatus: (id: string, status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED') => {
+        db.prepare(`UPDATE smart_metadata SET processing_status = ? WHERE navidrome_id = ?`).run(status, id);
+    },
+
+    saveBatchAnalysis: (updates: { songId: string, metaUpdate: any, vector?: number[] }[]) => {
+        const updateMeta = db.prepare(`
+            UPDATE smart_metadata SET
+                description = @description,
+                tags = @tags,
+                mood = @mood,
+                is_instrumental = @is_instrumental,
+                analysis_json = @analysis_json,
+                energy_level = @energy_level,
+                visual_popularity = @visual_popularity,
+                language = @language,
+                spectrum = @spectrum,
+                spatial = @spatial,
+                scene_tag = @scene_tag,
+                llm = @llm,
+                last_analyzed = @last_analyzed,
+                processing_status = 'COMPLETED'
+            WHERE navidrome_id = @navidrome_id
+        `);
+
+        // We reuse insertVectorStmt from closure if possible, but variables are block scoped in initDB?
+        // Ah, variables were let defined at top level. We can access insertVectorStmt.
+
+        const txn = db.transaction((items) => {
+            for (const item of items) {
+                // Update Metadata
+                updateMeta.run({
+                    navidrome_id: item.songId,
+                    description: item.metaUpdate.description,
+                    tags: JSON.stringify(item.metaUpdate.tags),
+                    mood: item.metaUpdate.mood,
+                    is_instrumental: item.metaUpdate.is_instrumental ? 1 : 0,
+                    analysis_json: item.metaUpdate.analysis_json,
+                    energy_level: item.metaUpdate.energy_level,
+                    visual_popularity: item.metaUpdate.visual_popularity,
+                    language: item.metaUpdate.language,
+                    spectrum: item.metaUpdate.spectrum,
+                    spatial: item.metaUpdate.spatial,
+                    scene_tag: item.metaUpdate.scene_tag,
+                    llm: item.metaUpdate.llm,
+                    last_analyzed: new Date().toISOString()
+                });
+
+                // Update Vector
+                if (item.vector) {
+                    // We need song rowid
+                    const rowIdRes = getRowIdStmt.get(item.songId) as { rowid: number } | undefined;
+                    if (rowIdRes) {
+                        const buffer = new Float32Array(item.vector);
+                        insertVectorStmt.run({ song_id: BigInt(rowIdRes.rowid), embedding: buffer });
+                    }
+                }
+            }
+        });
+
+        txn(updates);
     }
 };
 

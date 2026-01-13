@@ -8,6 +8,9 @@ services:
     environment:
       - PORT=3000
       - NODE_ENV=production
+      # Redis Config
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
       # Pass through Navidrome credentials
       - ND_URL=${ND_URL}
       - ND_USER=${ND_USER}
@@ -28,6 +31,25 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-    # Optional: Volume mapping for persistent data if any (currently none specified in server.js but good for logs/uploads if added later)
-    # volumes:
-    #   - ./data:/app/data
+    # Persistent data volume
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  redis:
+    image: redis:7-alpine
+    container_name: navimuse_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  redis_data:

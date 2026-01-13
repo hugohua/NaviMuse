@@ -270,48 +270,47 @@ export class NavidromeClient {
      * Get all songs by iterating through all albums.
      * Use with caution on large libraries.
      */
+    /**
+     * Get all songs efficiently using search3
+     * This is much faster than iterating albums.
+     */
     async getAllSongs(onProgress?: (count: number, total: number) => void, limit?: number): Promise<Song[]> {
+        const BATCH_SIZE = 2000;
+        let offset = 0;
+        const allSongs: Song[] = [];
+
+        console.log('[NavidromeClient] Fetching all songs using search3 strategy...');
+
         try {
-            // 1. Get all albums (assuming < 50000 for now)
-            // 'alphabeticalByName' is standard
-            // Optimization: If limit is set, don't fetch 50000 albums. 
-            // Average 10 songs per album? fetch limit/2 albums? or limit * 2 to be safe.
-            const albumFetchSize = limit ? Math.max(50, limit * 2) : 50000;
-            const albums = await this.getAlbumList('alphabeticalByName', albumFetchSize);
-
-            if (!albums.length) return [];
-
-            const allSongs: Song[] = [];
-            let processed = 0;
-
-            // 2. Batch process albums to get songs
-            for (let i = 0; i < albums.length; i += this.BATCH_SIZE) {
-                // Check if we hit the limit
-                if (limit && allSongs.length >= limit) break;
-
-                const chunk = albums.slice(i, i + this.BATCH_SIZE);
-                const results = await Promise.all(
-                    chunk.map(async album => {
-                        // console.log(`Fetching album: ${album.title} (${album.id})`); // Verbose log
-                        return this.getAlbum(album.id).catch(e => {
-                            console.warn(`Failed to get album ${album.id}:`, e.message);
-                            return [];
-                        });
-                    })
-                );
-
-                for (const songs of results) {
-                    if (limit && allSongs.length >= limit) break;
-                    allSongs.push(...songs);
+            while (true) {
+                // If we have a limit, cap the batch size
+                let currentBatchSize = BATCH_SIZE;
+                if (limit) {
+                    const remaining = limit - allSongs.length;
+                    if (remaining <= 0) break;
+                    currentBatchSize = Math.min(BATCH_SIZE, remaining);
                 }
 
-                // Trim if slightly over due to batching
-                if (limit && allSongs.length > limit) {
-                    allSongs.splice(limit);
+                const res = await this.request<any>('search3.view', {
+                    query: '',
+                    songCount: currentBatchSize,
+                    songOffset: offset
+                });
+
+                const rawSongs = res.searchResult3?.song || [];
+                const normalizedSongs = rawSongs.map(this.normalizeSong);
+
+                if (normalizedSongs.length === 0) break;
+
+                allSongs.push(...normalizedSongs);
+                offset += normalizedSongs.length;
+
+                if (onProgress) {
+                    onProgress(allSongs.length, 0); // Total unknown in search3
                 }
 
-                processed += chunk.length;
-                if (onProgress) onProgress(allSongs.length, limit || albums.length * 10); // Estimate total if limiting
+                // If we got fewer songs than requested, we reached the end
+                if (normalizedSongs.length < currentBatchSize) break;
             }
 
             return allSongs;
