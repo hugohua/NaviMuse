@@ -90,7 +90,7 @@ export class GeminiService implements IAIService {
             }];
         } catch (error) {
             console.error("[GeminiService] Batch Metadata Generation Failed:", error);
-            return [];
+            throw error; // Re-throw to trigger Circuit Breaker in Worker
         }
     }
 

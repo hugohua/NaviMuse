@@ -157,6 +157,17 @@ export const api = {
     stopQueue: async (): Promise<QueueActionResult & { clearedJobs?: number }> => {
         const res = await fetch('/api/queue/stop', { method: 'POST' });
         return res.json();
+    },
+
+    getAdminSongs: async (page: number = 1, limit: number = 50): Promise<{
+        data: any[], // detailed metadata
+        pagination: { total: number, page: number, limit: number, totalPages: number }
+    }> => {
+        const res = await fetch(`/api/admin/songs?page=${page}&limit=${limit}`);
+        if (!res.ok) {
+            throw new Error(`Failed to fetch songs: ${res.statusText}`);
+        }
+        return res.json();
     }
 };
 

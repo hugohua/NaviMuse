@@ -40,4 +40,8 @@ router.post('/queue/resume', QueueController.resume);
 router.post('/queue/stop', QueueController.stop);
 router.get('/queue/status', QueueController.status);
 
+// --- Admin / Inspection ---
+import { AdminController } from '../controllers/admin.controller';
+router.get('/admin/songs', AdminController.getSongs);
+
 export const apiRouter = router;
