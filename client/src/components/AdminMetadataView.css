@@ -304,7 +304,7 @@
     align-items: center;
     gap: 0.75rem;
     font-size: 0.8rem;
-    color: var(--muted-foreground);
+    color: rgba(255, 255, 255, 0.6);
 }
 
 .admin-detail-meta svg {
@@ -337,7 +337,7 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.1em;
-    color: var(--muted-foreground);
+    color: rgba(255, 255, 255, 0.5);
     margin-bottom: 0.75rem;
     display: flex;
     align-items: center;
@@ -364,7 +364,7 @@
 .admin-empty-state {
     padding: 2rem;
     text-align: center;
-    color: var(--muted-foreground);
+    color: rgba(255, 255, 255, 0.5);
     font-size: 0.875rem;
     background: rgba(255, 255, 255, 0.02);
     border: 1px dashed rgba(255, 255, 255, 0.1);
@@ -400,14 +400,14 @@
     font-size: 0.6rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: var(--muted-foreground);
+    color: rgba(255, 255, 255, 0.5);
     margin-bottom: 0.25rem;
 }
 
 .admin-attr-value {
     font-size: 0.875rem;
     font-weight: 500;
-    color: var(--foreground);
+    color: rgba(255, 255, 255, 0.9);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -418,7 +418,7 @@
 }
 
 .admin-attr-card.empty .admin-attr-value {
-    color: var(--muted-foreground);
+    color: rgba(255, 255, 255, 0.4);
 }
 
 /* Tags */
