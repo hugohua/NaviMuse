@@ -45,7 +45,7 @@ WORKDIR /app
 # (If you have python runtime deps, add them here, otherwise minimal node env is fine)
 # The user's reference included python, assuming it might be needed for specific services or node-gyp rebuilds if any.
 # Keeping it safe based on user's reference, though 'production' usually doesn't need build tools unless pre-gyp fails.
-RUN apk add --no-cache python3 py3-pip
+RUN apk add --no-cache python3 py3-pip ffmpeg
 
 # Copy node_modules from dependencies
 COPY --from=dependencies /app/node_modules ./node_modules
@@ -74,4 +74,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
 
 # Start the server
-CMD ["node", "dist/server.js"]
+CMD ["node", "dist/src/server.js"]

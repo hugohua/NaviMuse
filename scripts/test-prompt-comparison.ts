@@ -7,62 +7,19 @@ import * as fs from 'fs';
 import * as path from 'path';
 import 'dotenv/config';
 
+// 导入统一的 System Prompt (单一来源，方便维护)
+import { METADATA_SYSTEM_PROMPT } from '../src/services/ai/systemPrompt';
+
 // 1. Configuration
 const TEST_LIMIT = 15; // Number of songs to process
 const MODEL_NAME = process.env.GEMINI_MODEL || "gemini-3-flash-preview";
 
-// 2. New Prompt Definition
-const NEW_SYSTEM_PROMPT = `
-<system_config>
-  <role>Ultra-Precision Music Embedding Architect</role>
-  <specialization>768D Vector Space Optimization & Acoustic Modeling</specialization>
-  <engine_tuning>
-    - Model: Gemini 3 Flash
-    - Output: Minified JSON Array (No markdown tags)
-    - Temp: 0.3 (Ensuring deterministic structural output)
-  </engine_tuning>
-</system_config>
-
-<vector_strategy>
-  <goal>最大化向量空间中的余弦距离，通过“正向特征+物理属性+负向约束”三位一体建模</goal>
-  <acoustic_precision>
-    使用[瞬态响应/谐波密度/动态范围/空间混响/频谱质感]定义物理特征。
-  </acoustic_precision>
-  <contrast_logic>
-    每一个描述必须包含一个“语义对立面”，例如：“具备温暖的磁带饱和感，彻底排除了数字冷峻的削波感”。
-  </contrast_logic>
-</vector_strategy>
-
-<output_schema>
-  [
-    {
-      "id": "string",
-      "vector_anchor": {
-        "acoustic_model": "物理层：分析音色、空间、动态（50字）",
-        "semantic_push": "意象层：分析情绪、场景、负向排除特征（80字）",
-        "cultural_weight": "地位层：经典度评价 + 时代特征"
-      },
-      "embedding_tags": {
-        "spectrum": "High/Mid/Low/Full",
-        "spatial": "Dry/Wet/Huge/Intimate",
-        "energy": 1-10,
-        "mood_coord": ["#标准情绪", "#微情绪"],
-        "objects": ["#代表乐器", "#核心质感"]
-      },
-      "popularity_raw": 0.0-1.0
-    }
-  ]
-</output_schema>
-
-<execution_instruction>
-  处理以下歌曲数据。请确保 vector_anchor 中的描述不含任何虚词，每一句话都必须为向量空间提供明确的方向推力。
-</execution_instruction>
-`;
+// 注意: 原 NEW_SYSTEM_PROMPT 已移除，现在使用从 systemPrompt.ts 导入的 METADATA_SYSTEM_PROMPT
 
 async function main() {
   console.log("=== Starting Prompt Comparison Test ===");
 
-  // 3. Init DB & Fetch Data
+  // 2. Init DB & Fetch Data
   initDB();
   const rows = db.prepare(`
         SELECT navidrome_id, title, artist, album, description, tags, mood 
@@ -78,7 +35,7 @@ async function main() {
   const testSet = rows.slice(0, TEST_LIMIT);
   console.log(`Fetched ${testSet.length} songs for testing.`);
 
-  // 4. Configure AI Client (Copied from GeminiService to ensure standalone isolation)
+  // 3. Configure AI Client (Copied from GeminiService to ensure standalone isolation)
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("Missing GEMINI_API_KEY");
 
@@ -95,13 +52,13 @@ async function main() {
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({
     model: MODEL_NAME,
-    systemInstruction: NEW_SYSTEM_PROMPT,
+    systemInstruction: METADATA_SYSTEM_PROMPT,
     generationConfig: {
       temperature: 0.3 // Deterministic output
     }
   });
 
-  // 5. Build Input
+  // 4. Build Input
   const inputPayload = testSet.map(s => ({
     id: s.navidrome_id,
     title: s.title,
@@ -132,10 +89,9 @@ async function main() {
     process.exit(1);
   }
 
-  // 6. Generate Report
+  // 5. Generate Report
   let reportMarkdown = `# Prompt Comparison Report\n\nGenerated at: ${new Date().toISOString()}\n\n`;
 
-  // Header
   // Header
   reportMarkdown += `| ID | Song | Old Description | New Acoustic | New Semantic | New Tags |\n`;
   reportMarkdown += `|---|---|---|---|---|---|\n`;
