@@ -1,5 +1,7 @@
 import { navidromeClient } from './navidrome';
 import { recommendationService } from './recommendation/RecommendationService';
+import { userProfileService } from './recommendation/UserProfileService';
+import { hybridSearchService } from './recommendation/HybridSearchService';
 import { config } from '../config';
 import { Song, CuratorResponse, DiscoveryMode } from '../types';
 
@@ -16,39 +18,16 @@ export class CuratorService {
      * 生成用户画像
      * 获取一定数量代表性歌曲（优先红心，其次高频播放）并调用 LLM 分析
      */
+    /**
+     * 生成用户画像
+     * 获取一定数量代表性歌曲（优先红心，其次高频播放）并调用 LLM 分析
+     */
     async generateUserProfile(): Promise<import('../types').UserProfile> {
-        console.log('[Curator] Generating User Profile logic...');
-
-        // 1. 获取数据 (红心歌曲 + 常听歌曲)
-        // 扩大样本池：除了显式喜欢的 (Starred)，加入隐式喜欢的 (Most Played)
-        const [starredSongs, mostPlayed] = await Promise.all([
-            navidromeClient.getStarred(),
-            navidromeClient.getMostPlayed(20) // Top 20 frequent albums
-        ]);
-
-        // 2. 合并与去重
-        const map = new Map<string, Song>();
-        // 优先放入常听 (通常更有时效性或代表性)
-        mostPlayed.forEach(s => map.set(s.id, s));
-        // 补充红心 (如果已存在则保留，或覆盖，这里 Song 对象一致所以没区别)
-        starredSongs.forEach(s => {
-            if (!map.has(s.id)) map.set(s.id, s);
-        });
-
-        const allCandidates = Array.from(map.values());
-        console.log(`[Curator] Profile Source: ${allCandidates.length} unique songs (Starred + Most Played).`);
-
-        // 3. 筛选 Top N
-        // 策略: 严格按播放量排序。对于 PlayCount=0 的红心歌曲，排在最后。
-        const sampleSize = config.app.profileSampleSize;
-        const topSongs = allCandidates
-            .sort((a, b) => (b.playCount || 0) - (a.playCount || 0))
-            .slice(0, sampleSize);
-
-        console.log(`[Curator] Analyzed ${topSongs.length} songs for profile.`);
-
-        // 4. 调用 LLM
-        return await recommendationService.analyzeUserProfile(topSongs);
+        console.log('[Curator] Delegating Profile Generaton to UserProfileService...');
+        // Default to 'admin' for single-user implementation
+        const profile = await userProfileService.syncUserProfile('admin');
+        // syncUserProfile returns the JSON object directly based on previous update
+        return profile as import('../types').UserProfile;
     }
 
     /**
@@ -60,130 +39,62 @@ export class CuratorService {
     async curate(scene: string, mode: DiscoveryMode = 'default', userProfilePrecalced?: import('../types').UserProfile): Promise<CuratorResponse> {
         console.log(`[Curator] Starting flow for scene: "${scene}" (Mode: ${mode})`);
 
-        // --- Step 1: Extract (抽取 - 基于模式的混合采样) ---
-        console.log('[Curator] Step 1: Extracting candidates...');
+        // Map Frontend DiscoveryMode to Hybrid Logic
+        // CuratorService acts as a facade/controller here
 
-        // 定义采样配比
-        let randomCount = 100;
-        let starredCount = 100;
+        // 1. Call Hybrid Search
+        // We use 'admin' as distinct userId
+        // search() returns CuratorResponse because useAI=true
+        console.log('[Curator] Delegating to HybridSearchService...');
 
-        // Data containers
-        let randomSongs: Song[] = [];
-        let starredSongs: Song[] = [];
+        const hybridResult = await hybridSearchService.search(scene, {
+            candidateLimit: mode === 'fresh' ? 100 : 50, // Broader search for fresh?
+            finalLimit: 20,
+            useAI: true,
+            userId: 'admin',
+            mode: mode
+        });
 
-        if (mode === 'familiar') {
-            // Strategy: 20 Random + 180 Familiar (Starred + Most Played)
-            randomCount = 20;
-
-            const [rando, starred, mostPlayed] = await Promise.all([
-                navidromeClient.getRandomSongs(randomCount),
-                navidromeClient.getStarred(),
-                navidromeClient.getMostPlayed(20)   // Fetch songs from Top 20 frequent albums
-            ]);
-
-            randomSongs = rando;
-
-            // Merge & Dedupe Familiar Pool
-            const map = new Map<string, Song>();
-            mostPlayed.forEach(s => map.set(s.id, s));
-            starred.forEach(s => {
-                if (!map.has(s.id)) map.set(s.id, s);
-            });
-
-            const allFamiliar = Array.from(map.values());
-            console.log(`[Curator] Familiar Pool: ${allFamiliar.length} unique songs (Starred + Most Played).`);
-
-            // Slice to 180
-            starredSongs = allFamiliar.sort(() => 0.5 - Math.random()).slice(0, 180);
-
-        } else {
-            // Default or Fresh
-            if (mode === 'fresh') {
-                randomCount = 200;
-                starredCount = 20;
-            }
-
-            const [rando, starred] = await Promise.all([
-                navidromeClient.getRandomSongs(randomCount),
-                navidromeClient.getStarred(),
-            ]);
-
-            randomSongs = rando;
-            starredSongs = starred.sort(() => 0.5 - Math.random()).slice(0, starredCount);
-        }
-
-        // Merge Pools
-        const candidatePool = [...randomSongs, ...starredSongs];
-
-        // 去重 (根据 ID)
-        const uniquePoolMap = new Map<string, Song>();
-        candidatePool.forEach(s => uniquePoolMap.set(s.id, s));
-        const uniqueCandidates = Array.from(uniquePoolMap.values());
-
-        console.log(`[Curator] Pool ready. Total candidates: ${uniqueCandidates.length} (Random: ${randomSongs.length}, Starred: ${starredSongs.length})`);
-
-        // --- Step 2: Transform (AI 筛选与重排) ---
-        console.log('[Curator] Step 2: AI Reranking...');
-
-        // 用户画像摘要: 简单的取用户红心歌曲最多的 5 个流派
-        const favGenres = this.getTopGenres(starredSongs);
-
-        // 构建上下文说明供 AI 参考 (Default Profile if not provided)
-        let userContext: import('../types').UserProfile;
-
-        if (userProfilePrecalced) {
-            console.log('[Curator] Using provided User Persona.');
-            userContext = userProfilePrecalced;
-        } else {
-            // Construct a temporary/default profile based on simple stats
-            userContext = {
-                technical_profile: {
-                    summary_tags: favGenres,
-                    taste_anchors: [],
-                    dimensions: {
-                        era_preference: "Unknown",
-                        energy_level: "Balanced",
-                        vocal_style: "Various"
-                    },
-                    blacklist_inference: []
-                },
-                display_card: {
-                    title: "Guest User",
-                    message: "A balanced mix based on your top genres."
-                }
+        // 2. Validate Result
+        let result: CuratorResponse;
+        if (Array.isArray(hybridResult)) {
+            // Fallback case (HybridSearch returned array mostly on error or useAI=false)
+            // But we requested useAI=true. If it fell back, it wraps in array.
+            console.warn("[Curator] Hybrid Search returned raw list (Fallback). Wrapping...");
+            result = {
+                scene: scene,
+                playlistName: `NaviMuse: ${scene} (Fallback)`,
+                description: "AI service busy, showing best matches.",
+                tracks: hybridResult.map((r: any) => ({
+                    songId: r.id,
+                    reason: r.reason || "Vector Match"
+                }))
             };
+        } else {
+            result = hybridResult as CuratorResponse;
         }
 
-        // 调用 LLM
-        const curation = await recommendationService.curatePlaylist(scene, userContext, uniqueCandidates);
-        console.log(`[Curator] AI selected ${curation.tracks.length} tracks.`);
+        // 3. Create Playlist in Navidrome
+        console.log('[Curator] Creating Playlist in Navidrome...');
 
-        // --- Step 3: Load (回写歌单) ---
-        console.log('[Curator] Step 3: Creating Playlist...');
-
-        // 防幻觉检查: 确保 AI 返回的 ID 确实存在于我们的候选池中
-        const validSongIds = curation.tracks
-            .map(t => t.songId)
-            .filter(id => uniquePoolMap.has(id));
-
-        if (validSongIds.length === 0) {
-            throw new Error("AI returned no valid song IDs from the pool.");
-        }
-
-        // 调用 Navidrome API 创建歌单
         // Enforce "NaviMuse" prefix
-        let finalPlaylistName = curation.playlistName;
+        let finalPlaylistName = result.playlistName;
         if (!finalPlaylistName.startsWith("NaviMuse")) {
             finalPlaylistName = `NaviMuse: ${finalPlaylistName}`;
         }
 
-        const playlist = await navidromeClient.createPlaylist(finalPlaylistName, validSongIds);
-        console.log(`[Curator] Success! Playlist created: ${playlist.name} (${playlist.songCount} songs)`);
+        const songIds = result.tracks.map(t => t.songId);
 
-        // Update response to reflect actual name
-        curation.playlistName = playlist.name;
+        try {
+            const playlist = await navidromeClient.createPlaylist(finalPlaylistName, songIds);
+            console.log(`[Curator] Success! Playlist created: ${playlist.name} (${playlist.songCount} songs)`);
+            result.playlistName = playlist.name;
+        } catch (e: any) {
+            console.error("[Curator] Failed to create playlist in Navidrome:", e.message);
+            // Don't fail the request, just warn
+        }
 
-        return curation;
+        return result;
     }
 
     /**

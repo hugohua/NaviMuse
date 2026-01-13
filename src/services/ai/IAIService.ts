@@ -16,4 +16,13 @@ export interface IAIService {
      * @returns Array of song IDs in ranked order
      */
     rerankSongs(query: string, candidates: any[]): Promise<string[]>;
+
+    /**
+     * Curate a playlist from candidates based on scene/vibe.
+     * @param scenePrompt User instructions
+     * @param candidates Candidate songs
+     * @param limit Target number of songs
+     * @param userProfile Optional user persona context
+     */
+    curatePlaylist(scenePrompt: string, candidates: any[], limit?: number, userProfile?: any): Promise<import('../../types').CuratorResponse>;
 }

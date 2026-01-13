@@ -1,4 +1,5 @@
-import { Queue, Worker, Job } from 'bullmq';
+
+import { Queue, Worker } from 'bullmq';
 import IORedis from 'ioredis';
 import { AIFactory } from '../ai/AIFactory';
 import { EmbeddingService } from '../ai/EmbeddingService';
@@ -36,14 +37,13 @@ interface MetadataJobData {
 
 // --- Worker Implementation ---
 // Gemini Free Tier: 15 RPM
-// We set strict limiter here.
-/**
- * 启动元数据生成 Worker
- * 负责消费 'metadata-generation' 队列，包含三个主要阶段：
- * 1. AI Analysis: 调用 LLM 生成描述和标签
- * 2. Database Update: 更新 smart_metadata
- * 3. Vector Embedding: 生成向量并存入 vec_songs
- */
+// Optimizing for Batch:
+// 1. Generate Metadata Batch (1 API Call)
+// 2. Generate Embedding Batch (1 API Call)
+// Total: 2 Calls per Job.
+// Limiter: With 3 songs/job, max 15 RPM => 7 Jobs/min => 21 songs/min.
+// Let's constrain to 5 Jobs/min for safety (10 calls/min).
+
 export const startWorker = () => {
     const worker = new Worker<MetadataJobData>('metadata-generation', async (job) => {
         const { songs, correlationId } = job.data;
@@ -52,86 +52,121 @@ export const startWorker = () => {
         try {
             // 1. Get AI Service
             const aiService = AIFactory.getService();
+            const embeddingService = new EmbeddingService();
 
-            // 2. Generate Metadata (Batch)
-            console.log(`[Worker] Sending request to AI...`);
+            // --- Phase 1: Metadata Generation (1 Call) ---
+            console.log(`[Worker] Sending Metadata Request...`);
             const results = await aiService.generateBatchMetadata(songs.map(s => ({
                 id: s.navidrome_id,
                 title: s.title,
                 artist: s.artist
             })));
+            console.log(`[Worker] Metadata Complete. Received ${results.length} results.`);
 
-            console.log(`[Worker] AI Request Complete. Received ${results.length} results.`);
-
-            // 3. Update Database
-            let successCount = 0;
-            // Initialize Embedding Service once per batch (or per item if lightweight, but class has state)
-            const embeddingService = new EmbeddingService();
+            // --- Phase 2: Prepare Updates & Vector Texts ---
+            const updates: {
+                songId: string,
+                metaUpdate: any,
+                vectorText?: string
+            }[] = [];
 
             for (const result of results) {
-                // Match result to song ID
                 const songId = result.id ? String(result.id) : null;
+                if (!songId) continue;
 
-                if (songId) {
-                    try {
-                        // --- Stage 2: Database Update (Metadata) ---
-                        // A. Update Metadata
-                        metadataRepo.updateAnalysis(songId, {
-                            description: result.vector_description,
-                            tags: result.tags,
-                            mood: result.mood,
-                            is_instrumental: result.is_instrumental
-                        });
+                const inputSong = songs.find(s => s.navidrome_id === songId);
+                const analysisJson = JSON.stringify(result);
 
-                        // --- Stage 3: Vector Embedding ---
-                        // B. Generate & Save Vector
-                        // We use the 'vector_description' or combined text for embedding
-                        if (result.vector_description) {
-                            try {
-                                // Construct structured embedding string
-                                const inputSong = songs.find(s => s.navidrome_id === result.id);
-                                const songTitle = inputSong ? inputSong.title : 'Unknown Title';
-                                const songArtist = inputSong ? inputSong.artist : 'Unknown Artist';
-                                const tagsString = (result.tags || []).join(' ');
-                                const moodString = result.mood || '';
+                // Extract Fields
+                const acoustic = result.vector_anchor?.acoustic_model || "";
+                const semantic = result.vector_anchor?.semantic_push || "";
+                const description = `${acoustic}\n\n[Imagery] ${semantic}`;
 
-                                // Template: Song: [Title] | Artist: [Artist] | Mood: [Mood] | Tags: [Tag1] [Tag2] | Description: [Vector Description]
-                                const embeddingText = `Song: ${songTitle} | Artist: ${songArtist} | Mood: ${moodString} | Tags: ${tagsString} | Description: ${result.vector_description}`;
+                const tags = [
+                    ...(result.embedding_tags?.mood_coord || []),
+                    ...(result.embedding_tags?.objects || [])
+                ];
+                if (result.embedding_tags?.scene_tag) tags.push(result.embedding_tags.scene_tag);
+                if (result.embedding_tags?.spectrum) tags.push(`#Spectrum:${result.embedding_tags.spectrum}`);
 
-                                const vector = await embeddingService.embed(embeddingText);
-                                const rowId = metadataRepo.getSongRowId(songId);
-                                if (rowId) {
-                                    metadataRepo.saveVector(rowId, vector);
-                                } else {
-                                    console.warn(`[Worker] Could not find rowid for ${songId} to save vector.`);
-                                }
-                            } catch (vecErr) {
-                                console.error(`[Worker] Vector Generation Failed for ${songId}:`, vecErr);
-                                // We don't fail the whole job if vector fails, but we log it.
-                            }
-                        }
+                const metaUpdate = {
+                    description: description,
+                    tags: tags,
+                    mood: (result.embedding_tags?.mood_coord || [])[0] || "Unknown",
+                    is_instrumental: result.is_instrumental ? 1 : 0, // [中文注释] 使用 AI 显式返回的纯音乐标记 (1=是, 0=否)
+                    analysis_json: analysisJson,
+                    energy_level: result.embedding_tags?.energy,
+                    visual_popularity: result.popularity_raw,
+                    language: result.language, // [中文注释] 存储检测到的语种 (CN/EN/etc)
+                    spectrum: result.embedding_tags?.spectrum,
+                    spatial: result.embedding_tags?.spatial,
+                    scene_tag: result.embedding_tags?.scene_tag,
+                    llm: result.llm_model // [AI] Model Name
+                };
 
-                        successCount++;
-                    } catch (dbErr) {
-                        console.error(`[Worker] DB Update Failed for ${songId}:`, dbErr);
-                    }
-                } else {
-                    console.warn("[Worker] Result missing ID:", result);
+                // Prepare Vector Text
+                let vectorText = undefined;
+                if (inputSong) {
+                    vectorText = EmbeddingService.constructVectorText(result, {
+                        title: inputSong.title,
+                        artist: inputSong.artist,
+                        genre: (result.embedding_tags?.objects || []).find(t => t.includes('Genre') || t.includes('Style')) || ""
+                    });
+                }
+
+                updates.push({ songId, metaUpdate, vectorText });
+            }
+
+            // --- Phase 3: Batch Vector Embedding (1 Call) ---
+            const validVectorTexts = updates.filter(u => u.vectorText).map(u => u.vectorText!);
+            let vectors: number[][] = [];
+
+            if (validVectorTexts.length > 0) {
+                console.log(`[Worker] Generating Batch Embeddings for ${validVectorTexts.length} items...`);
+                try {
+                    vectors = await embeddingService.embedBatch(validVectorTexts);
+                } catch (err) {
+                    console.error("Batch Embedding Failed, skipping vector save:", err);
+                    // Can continue to save metadata even if vector fails
                 }
             }
 
-            console.log(`[Worker] Job ${job.id} Complete. Updated ${successCount}/${songs.length} songs.`);
+            // --- Phase 4: Commit to DB ---
+            let successCount = 0;
+            let vecIndex = 0;
+
+            for (const update of updates) {
+                try {
+                    // Update Metadata
+                    metadataRepo.updateAnalysis(update.songId, update.metaUpdate);
+
+                    // Update Vector if available
+                    if (update.vectorText && vectors[vecIndex]) {
+                        const vector = vectors[vecIndex];
+                        const rowId = metadataRepo.getSongRowId(update.songId);
+                        if (rowId) {
+                            metadataRepo.saveVector(rowId, vector);
+                        }
+                        vecIndex++;
+                    }
+                    successCount++;
+                } catch (e) {
+                    console.error(`DB Update Failed for ${update.songId}`, e);
+                }
+            }
+
+            console.log(`[Worker] Job ${job.id} Complete. Updated ${successCount}/${songs.length}.`);
             return { success: true, count: successCount };
 
         } catch (error) {
             console.error(`[Worker] Job ${job.id} Failed:`, error);
-            throw error; // Trigger retry
+            throw error;
         }
     }, {
         connection,
-        concurrency: 1, // Sequential processing
+        concurrency: 1, // Sequential
         limiter: {
-            max: 15,
+            max: 6, // 6 Jobs * 2 Calls = 12 Req/Min (< 15 Limit)
             duration: 60000 // 1 Minute
         }
     });
@@ -140,7 +175,7 @@ export const startWorker = () => {
         console.error(`[Worker] Job ${job?.id} failed with ${err.message}`);
     });
 
-    console.log('[Worker] Metadata Worker Started.');
+    console.log('[Worker] Metadata Worker Started (Batch Mode).');
     return worker;
 };
 

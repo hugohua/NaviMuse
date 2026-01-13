@@ -54,25 +54,43 @@ export interface UserProfile {
         taste_anchors: string[]; // Top 3-5 iconic artists
         dimensions: {
             era_preference: string;
-            energy_level: string;
-            vocal_style: string;
+            energy_level: string; // 0.0-1.0 Scale with Description
+            acoustic_environment: string; // [New] E.g., Dry/Wet, Studio/Live
         };
         blacklist_inference: string[];
     };
     display_card: {
         title: string;
-        message: string;
+        message: string; // 100-150 words
+        ui_theme?: { // [New] UI Theme
+            primary_color: string;
+            visual_metaphor: string;
+        };
     };
 }
 
+// New Strict Output Schema for Gemini 3 Flash
 export interface MetadataJSON {
-    id?: string | number; // Added to support batch response matching
-    vector_description: string; // High-density semantic text
-    tags: string[]; // #Genre #Scene #Mood
-    mood: string;
-    is_instrumental: boolean;
-    // Legacy mapping (optional, or we remove them if code doesn't use them anymore)
-    description?: string;
-    genre?: string;
-    language?: string;
+    id?: string | number;
+    vector_anchor: {
+        acoustic_model: string; // 物理层
+        semantic_push: string;  // 意象层
+        cultural_weight: string; // 地位层
+        exclusion_logic?: string; // 负向约束 (New)
+    };
+    embedding_tags: {
+        spectrum: "High" | "Mid" | "Low" | "Full";
+        spatial: "Dry" | "Wet" | "Huge" | "Intimate";
+        energy: number; // 1-10
+        mood_coord: string[];
+        objects: string[];
+        scene_tag?: string; // Derived or explicit
+    };
+    popularity_raw: number; // 0.0-1.0
+    // Helpers for compatibility or easy access
+    title?: string;
+    artist?: string;
+    language?: "CN" | "EN" | "JP" | "KR" | "Instrumental" | "Other"; // [中文注释] 语种枚举
+    is_instrumental?: boolean; // [中文注释] 是否纯音乐
+    llm_model?: string; // [AI] 生成模型的名称
 }

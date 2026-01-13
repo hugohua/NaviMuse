@@ -44,6 +44,24 @@ export interface SongMetadata {
     is_instrumental: number;
     /** [AI] 原始向量数据备份 (Binary / Blob) */
     embedding?: Buffer;
+
+    /** [AI - New] 完整分析数据 (JSON) */
+    analysis_json?: string;
+    /** [AI - New] 能量值 (1-10) */
+    energy_level?: number;
+    /** [AI - New] 视觉/经典热度 (0.0-1.0) */
+    visual_popularity?: number;
+    /** [AI - New] 语言 (CN/EN/etc) */
+    language?: string;
+    /** [AI - New] 频谱特征 */
+    spectrum?: string;
+    /** [AI - New] 空间特征 */
+    spatial?: string;
+    /** [AI - New] 场景标签 */
+    scene_tag?: string;
+    /** [AI - New] 生成该元数据的 AI 模型名称 */
+    llm?: string;
+
     /** 最后一次 AI 分析时间 (ISO8601) */
     last_analyzed?: string;
 
@@ -68,6 +86,16 @@ CREATE TABLE IF NOT EXISTS smart_metadata (
     mood TEXT,                     -- [AI] 情绪/氛围
     is_instrumental INTEGER DEFAULT 0, -- [AI] 是否纯音乐 (1:yes, 0:no)
     embedding BLOB,                -- [AI] 原始向量数据备份 (Binary)
+    
+    analysis_json TEXT,            -- [AI] 完整分析数据 (JSON)
+    energy_level INTEGER,          -- [AI] 能量值 (1-10)
+    visual_popularity REAL,        -- [AI] 视觉/经典热度 (0.0-1.0)
+    language TEXT,                 -- [AI] 语言
+    spectrum TEXT,                 -- [AI] 频谱特征
+    spatial TEXT,                  -- [AI] 空间特征
+    scene_tag TEXT,                -- [AI] 场景标签
+    llm TEXT,                      -- [AI] 生成该元数据的 AI 模型名称
+
     last_analyzed TEXT,            -- 最后一次 AI 分析时间 (ISO8601)
     last_updated TEXT,             -- 最后一次 Navidrome 同步时间
     hash TEXT                      -- 变更检测 Hash
@@ -81,6 +109,49 @@ CREATE VIRTUAL TABLE IF NOT EXISTS vec_songs USING vec0(
 );
 `;
 
+const createUserProfilesTable = `
+CREATE TABLE IF NOT EXISTS user_profiles (
+    user_id TEXT PRIMARY KEY,
+    json_profile TEXT,
+    taste_vector BLOB,
+    last_updated TEXT
+);
+`;
+
+const createUserInteractionsTable = `
+CREATE TABLE IF NOT EXISTS user_interactions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    navidrome_id TEXT NOT NULL,
+    action_type TEXT NOT NULL, -- 'star', 'play', 'skip', 'ban'
+    timestamp TEXT NOT NULL
+);
+`;
+
+const createFtsTable = `
+CREATE VIRTUAL TABLE IF NOT EXISTS fts_metadata USING fts5(
+    navidrome_id UNINDEXED,
+    title, 
+    artist, 
+    album, 
+    description, 
+    scene_tag,
+    content='smart_metadata', 
+    content_rowid='rowid'
+);
+`;
+
+const MIGRATIONS = [
+    `ALTER TABLE smart_metadata ADD COLUMN analysis_json TEXT;`,
+    `ALTER TABLE smart_metadata ADD COLUMN energy_level INTEGER;`,
+    `ALTER TABLE smart_metadata ADD COLUMN visual_popularity REAL;`,
+    `ALTER TABLE smart_metadata ADD COLUMN language TEXT;`,
+    `ALTER TABLE smart_metadata ADD COLUMN spectrum TEXT;`,
+    `ALTER TABLE smart_metadata ADD COLUMN spatial TEXT;`,
+    `ALTER TABLE smart_metadata ADD COLUMN scene_tag TEXT;`,
+    `ALTER TABLE smart_metadata ADD COLUMN llm TEXT;`
+];
+
 // Schema creation logic moved to initDB to prevent side-effects on import
 
 // Prepared Statements
@@ -92,10 +163,32 @@ let getPendingSongsStmt: Database.Statement;
 let getRowIdStmt: Database.Statement;
 let insertVectorStmt: Database.Statement;
 
+// User Profile Stmts
+let upsertProfileStmt: Database.Statement;
+let getProfileStmt: Database.Statement;
+let logInteractionStmt: Database.Statement;
+let getInteractionsStmt: Database.Statement;
+let getVectorByNavidromeIdStmt: Database.Statement;
+
 export function initDB() {
     try {
         db.exec(createSmartMetadataTable);
         db.exec(createVecTable);
+        db.exec(createFtsTable);
+        db.exec(createUserProfilesTable);
+        db.exec(createUserInteractionsTable);
+
+        // Simple Migration Logic
+        for (const migration of MIGRATIONS) {
+            try {
+                db.exec(migration);
+            } catch (e: any) {
+                // Ignore "duplicate column name" error (Code 1) -> Column already exists
+                if (!e.message.includes("duplicate column name")) {
+                    console.warn("Migration warning:", e.message);
+                }
+            }
+        }
 
         // Initialize Prepared Statements
         insertOrUpdateStmt = db.prepare(`
@@ -125,6 +218,14 @@ export function initDB() {
                 tags = @tags,
                 mood = @mood,
                 is_instrumental = @is_instrumental,
+                analysis_json = @analysis_json,
+                energy_level = @energy_level,
+                visual_popularity = @visual_popularity,
+                language = @language,
+                spectrum = @spectrum,
+                spatial = @spatial,
+                scene_tag = @scene_tag,
+                llm = @llm,
                 last_analyzed = @last_analyzed
             WHERE navidrome_id = @navidrome_id
         `);
@@ -143,6 +244,31 @@ export function initDB() {
             VALUES (@song_id, @embedding) 
         `);
 
+        // User Profile Statements
+        upsertProfileStmt = db.prepare(`
+            INSERT INTO user_profiles (user_id, json_profile, taste_vector, last_updated)
+            VALUES (@user_id, @json_profile, @taste_vector, @last_updated)
+            ON CONFLICT(user_id) DO UPDATE SET
+                json_profile = @json_profile,
+                taste_vector = @taste_vector,
+                last_updated = @last_updated
+        `);
+
+        getProfileStmt = db.prepare('SELECT * FROM user_profiles WHERE user_id = ?');
+
+        logInteractionStmt = db.prepare(`
+            INSERT INTO user_interactions (user_id, navidrome_id, action_type, timestamp)
+            VALUES (@user_id, @navidrome_id, @action_type, @timestamp)
+        `);
+
+        // Helper to get vector for a song ID (for calculating centroid)
+        getVectorByNavidromeIdStmt = db.prepare(`
+            SELECT v.embedding
+            FROM vec_songs v
+            JOIN smart_metadata s ON s.rowid = v.song_id
+            WHERE s.navidrome_id = ?
+        `);
+
     } catch (err: any) {
         console.error("Failed to initialize database schema.");
         console.error("Error Message:", err.message);
@@ -159,13 +285,21 @@ export const metadataRepo = {
     saveBasicInfo: (info: SongMetadata) => {
         return insertOrUpdateStmt.run(info);
     },
-    updateAnalysis: (id: string, result: { description: string, tags: string[], mood: string, is_instrumental: boolean }) => {
+    updateAnalysis: (id: string, result: { description: string, tags: string[], mood: string, is_instrumental: boolean, analysis_json?: string, energy_level?: number, visual_popularity?: number, language?: string, spectrum?: string, spatial?: string, scene_tag?: string, llm?: string }) => {
         return updateAnalysisStmt.run({
             navidrome_id: id,
             description: result.description,
             tags: JSON.stringify(result.tags),
             mood: result.mood,
             is_instrumental: result.is_instrumental ? 1 : 0,
+            analysis_json: result.analysis_json,
+            energy_level: result.energy_level,
+            visual_popularity: result.visual_popularity,
+            language: result.language,
+            spectrum: result.spectrum,
+            spatial: result.spatial,
+            scene_tag: result.scene_tag,
+            llm: result.llm,
             last_analyzed: new Date().toISOString()
         });
     },
@@ -217,5 +351,42 @@ export const metadataRepo = {
             filter_inst: options.is_instrumental === undefined ? null : (options.is_instrumental ? 1 : 0),
             limit: limit
         }) as (SongMetadata & { distance: number })[];
+    }
+};
+
+export const userProfileRepo = {
+    upsertProfile: (userId: string, profile: { json: string, vector: Float32Array }) => {
+        return upsertProfileStmt.run({
+            user_id: userId,
+            json_profile: profile.json,
+            taste_vector: Buffer.from(profile.vector.buffer, profile.vector.byteOffset, profile.vector.byteLength),
+            last_updated: new Date().toISOString()
+        });
+    },
+    getProfile: (userId: string) => {
+        const row = getProfileStmt.get(userId) as any;
+        if (!row) return null;
+        return {
+            userId: row.user_id,
+            jsonProfile: row.json_profile,
+            tasteVector: new Float32Array(row.taste_vector.buffer ? row.taste_vector.buffer : row.taste_vector), // Handle buffer
+            lastUpdated: row.last_updated
+        };
+    },
+    logInteraction: (userId: string, navidromeId: string, action: 'star' | 'play' | 'skip' | 'ban') => {
+        return logInteractionStmt.run({
+            user_id: userId,
+            navidrome_id: navidromeId,
+            action_type: action,
+            timestamp: new Date().toISOString()
+        });
+    },
+    getSongVector: (navidromeId: string): Float32Array | null => {
+        const row = getVectorByNavidromeIdStmt.get(navidromeId) as any;
+        if (!row || !row.embedding) return null;
+        // sqlite-vec returns Float32Array usually, or Buffer depending on driver.
+        // better-sqlite3 with sqlite-vec usually returns Float32Array if configured, or Buffer.
+        // Let's assume Buffer and convert.
+        return new Float32Array(row.embedding.buffer ? row.embedding.buffer : row.embedding);
     }
 };

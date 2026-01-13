@@ -75,9 +75,15 @@ export class QwenService implements IAIService {
             const json = (await import('json5')).default.parse(cleaned);
 
             if (Array.isArray(json)) {
-                return json as MetadataJSON[];
+                return (json as MetadataJSON[]).map(item => ({
+                    ...item,
+                    llm_model: config.ai.model
+                }));
             } else {
-                return [json as MetadataJSON];
+                return [{
+                    ...(json as MetadataJSON),
+                    llm_model: config.ai.model
+                }];
             }
 
         } catch (error) {
@@ -89,5 +95,15 @@ export class QwenService implements IAIService {
         // Not implemented for Qwen yet, return original order
         console.warn("[QwenService] Rerank not implemented, returning original order.");
         return candidates.map(c => String(c.navidrome_id));
+    }
+
+    async curatePlaylist(scenePrompt: string, candidates: any[], limit?: number, userProfile?: any): Promise<import('../../types').CuratorResponse> {
+        console.warn("[QwenService] Curation not implemented.");
+        return {
+            scene: "Qwen Not Supported",
+            playlistName: "Fallback",
+            description: "Curation requires Gemini Service",
+            tracks: []
+        };
     }
 }
