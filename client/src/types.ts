@@ -73,12 +73,16 @@ export interface UserProfile {
         dimensions: {
             era_preference: string;
             energy_level: string;
-            vocal_style: string;
+            acoustic_environment: string;
         };
         blacklist_inference: string[];
     };
     display_card: {
         title: string;
         message: string;
+        ui_theme?: {
+            primary_color: string;
+            visual_metaphor: string;
+        };
     };
 }

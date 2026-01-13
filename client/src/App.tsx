@@ -1,19 +1,21 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, startTransition, useCallback } from 'react';
 import { AudioPlayerProvider } from './contexts/AudioPlayerContext';
 import { QueuePanelProvider, useQueuePanel } from './contexts/QueuePanelContext';
+import { UserProfileProvider, useUserProfile } from './contexts/UserProfileContext';
 import { GlobalPlayer } from './components/GlobalPlayer';
 import { QueueSidebar } from './components/QueueSidebar';
-import { ModeSwitcher } from './components/ModeSwitcher';
+import { Omnibar } from './components/Omnibar';
 import { TagGroup } from './components/TagGroup';
 import { ResultCard } from './components/ResultCard';
 import { UserProfileCard } from './components/UserProfileCard';
 import { PlaylistSidebar } from './components/PlaylistSidebar';
-import type { DiscoveryMode, CuratorResponse, TagCategory, UserProfile } from './types';
+import type { DiscoveryMode, CuratorResponse, TagCategory } from './types';
 import { api } from './api';
 import { usePopup } from './contexts/PopupContext';
 import { ScrollArea } from './components/ui/scroll-area';
 import { Button } from './components/ui/button';
-import { Sparkles, ArrowRight, Loader2, Menu, Sun, Moon } from 'lucide-react';
+import { UserNav } from './components/UserNav';
+import { Menu } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useMediaQuery } from './hooks/use-media-query';
 import { useTheme } from './hooks/use-theme';
@@ -24,16 +26,21 @@ function AppContent() {
   const isDesktop = useMediaQuery('(min-width: 768px)');
 
   const [mode, setMode] = useState<DiscoveryMode>('default');
-  const [prompt, setPrompt] = useState('');
+
+  // Wrap mode change in startTransition for smooth dropdown animation
+  const handleModeChange = useCallback((newMode: DiscoveryMode) => {
+    startTransition(() => {
+      setMode(newMode);
+    });
+  }, []);
   const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [statusText, setStatusText] = useState('Ready');
   const [result, setResult] = useState<CuratorResponse | null>(null);
   const [tagCategories, setTagCategories] = useState<TagCategory[]>([]);
 
-  // User Profile State
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [analyzingProfile, setAnalyzingProfile] = useState(false);
+  // User Profile from Context
+  const { userProfile } = useUserProfile();
 
   // Playlist list refresh trigger
   const [refreshPlaylists, setRefreshPlaylists] = useState(0);
@@ -50,37 +57,7 @@ function AppContent() {
         console.error("Failed to load tags:", err);
         setStatusText("Failed to load configuration");
       });
-
-    // Load User Profile
-    const savedProfile = localStorage.getItem('navi_user_profile');
-    if (savedProfile) {
-      try {
-        setUserProfile(JSON.parse(savedProfile));
-      } catch (e) {
-        console.error("Failed to parse saved profile", e);
-        localStorage.removeItem('navi_user_profile');
-      }
-    }
   }, []);
-
-  const handleAnalyzeProfile = async () => {
-    if (analyzingProfile) return;
-    setAnalyzingProfile(true);
-    setStatusText("正在分析用户画像 (这可能需要几十秒)...");
-
-    try {
-      const profile = await api.analyzeUserProfile();
-      setUserProfile(profile);
-      localStorage.setItem('navi_user_profile', JSON.stringify(profile));
-      showPopup({ message: `画像分析完成: ${profile.display_card.title}`, title: 'Success' });
-      setStatusText("Ready");
-    } catch (e: any) {
-      showPopup({ message: '画像分析失败: ' + e.message, title: 'Error' });
-      setStatusText("Error analyzing profile");
-    } finally {
-      setAnalyzingProfile(false);
-    }
-  };
 
   const toggleTag = (tag: string) => {
     const next = new Set(selectedTags);
@@ -92,8 +69,10 @@ function AppContent() {
     setSelectedTags(next);
   };
 
-  const generate = async () => {
-    const combinedPrompt = [prompt, ...Array.from(selectedTags)].filter(Boolean).join(', ');
+  const generate = async (inputPrompt: string = '') => {
+    // If inputPrompt is empty (e.g. from tags only), check if we have tags
+    const activePrompt = inputPrompt;
+    const combinedPrompt = [activePrompt, ...Array.from(selectedTags)].filter(Boolean).join(', ');
 
     if (!combinedPrompt) {
       showPopup({ message: '请输入提示词或选择标签', title: 'Input Required' });
@@ -132,7 +111,7 @@ function AppContent() {
   };
 
   const { isQueueOpen, setQueueOpen } = useQueuePanel();
-  const { theme, toggleTheme } = useTheme();
+  const { theme } = useTheme();
 
   return (
     <div className="app-root">
@@ -146,14 +125,7 @@ function AppContent() {
 
         {/* Main Content */}
         <div className="main-content">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute top-4 right-4 z-50 text-foreground/80 hover:text-foreground hover:bg-white/10"
-            onClick={toggleTheme}
-          >
-            {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-          </Button>
+          <UserNav />
 
           <ScrollArea className="scroll-container">
             <div className="content-container">
@@ -179,29 +151,12 @@ function AppContent() {
               </header>
 
               {/* Controls */}
-              <div className="controls-section">
-                <div className="mode-section">
-                  <ModeSwitcher current={mode} onChange={setMode} />
-                </div>
-                <Button
-                  variant={analyzingProfile ? "secondary" : "default"}
-                  onClick={handleAnalyzeProfile}
-                  disabled={analyzingProfile}
-                  className="analyze-btn"
-                >
-                  {analyzingProfile ? (
-                    <>
-                      <Loader2 className="btn-icon animate-spin" />
-                      分析中...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="btn-icon" />
-                      {userProfile ? '更新画像' : '生成画像'}
-                    </>
-                  )}
-                </Button>
-              </div>
+              <Omnibar
+                mode={mode}
+                onModeChange={handleModeChange}
+                onGenerate={generate}
+                loading={loading}
+              />
 
               {/* Profile Card */}
               <AnimatePresence mode="wait">
@@ -230,27 +185,6 @@ function AppContent() {
             </div>
           </ScrollArea>
 
-          {/* Input Area - Floating Glass Bar */}
-          <div className="input-area">
-            <div className="input-bar">
-              <input
-                type="text"
-                className="prompt-input"
-                placeholder="描述当下的心情... (例如：下雨天的爵士乐)"
-                value={prompt}
-                onChange={e => setPrompt(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && generate()}
-              />
-              <Button
-                size="icon"
-                className="send-btn"
-                onClick={generate}
-                disabled={loading}
-              >
-                {loading ? <Loader2 className="send-icon animate-spin" /> : <ArrowRight className="send-icon" />}
-              </Button>
-            </div>
-          </div>
 
           {/* Result Modal Overlay */}
           <AnimatePresence>
@@ -393,7 +327,9 @@ function App() {
   return (
     <AudioPlayerProvider>
       <QueuePanelProvider>
-        <AppContent />
+        <UserProfileProvider>
+          <AppContent />
+        </UserProfileProvider>
       </QueuePanelProvider>
     </AudioPlayerProvider>
   );

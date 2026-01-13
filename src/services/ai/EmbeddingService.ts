@@ -60,22 +60,73 @@ export class EmbeddingService {
     }
 
     /**
-     * 批量生成向量 (串行处理以规避速率限制)
+     * 批量生成向量 (并行处理，单次API调用)
      * @param texts 文本数组
      */
     async embedBatch(texts: string[]): Promise<number[][]> {
-        // Gemini doesn't have a direct batch embed API in the Node SDK that is clearly documented for "embedContent" 
-        // in same way as generateContent, but we can iterate. 
-        // Or check if there's batchEmbedContents (it exists in REST, maybe in SDK).
-        // For safety and simplicity given 15 RPM limit, we might need to be careful.
-        // But embed requests might have different rate limits? 
-        // Embedding is usually cheaper/faster.
-        // Let's implement serial or parallel limit.
+        const model = this.genAI.getGenerativeModel({ model: this.modelName });
 
-        const results: number[][] = [];
-        for (const text of texts) {
-            results.push(await this.embed(text));
+        try {
+            const result = await model.batchEmbedContents({
+                requests: texts.map(t => ({
+                    content: { role: 'user', parts: [{ text: t }] },
+                    taskType: TaskType.RETRIEVAL_DOCUMENT,
+                    // @ts-ignore
+                    outputDimensionality: 768
+                }))
+            });
+
+            if (!result.embeddings) return [];
+            return result.embeddings.map(e => e.values || []);
+        } catch (error) {
+            console.error("Batch Embedding Failed:", error);
+            throw error;
         }
-        return results;
+    }
+
+    /**
+     * 构建符合向量模型偏好的结构化文本模板
+     */
+    static constructVectorText(data: import('../../types').MetadataJSON, trackInfo: { title: string, artist: string, genre?: string }): string {
+        const anchor = data.vector_anchor;
+        const tags = data.embedding_tags;
+
+        // Template:
+        // [Category: Music Retrieval]
+        // [Entity: {title} by {artist}]
+        // [Acoustics & Soundstage]
+        // {acoustic_model}. 
+        // Spectrum Profile: {spectrum}; Spatial Signature: {spatial}; Energy Density: {energy}/10.
+        // [Subjective Experience]
+        // Mood: {mood_tags}. 
+        // Narrative: {semantic_push}. 
+        // Key Elements: {objects}.
+        // [Boundary Constraints]
+        // Exclusion: {exclusion_logic}.
+        // [Metadata Fingerprint]
+        // Genre: {genre} | Era: {cultural_weight} | Cultural Context: ...
+
+        const moodTags = (tags.mood_coord || []).join(', ');
+        const objectTags = (tags.objects || []).join(', ');
+        const exclusion = anchor.exclusion_logic || "None";
+        const genre = trackInfo.genre || "Unknown Genre";
+
+        return `[Category: Music Retrieval]
+[Entity: ${trackInfo.title} by ${trackInfo.artist}]
+
+[Acoustics & Soundstage]
+${anchor.acoustic_model}.
+Spectrum Profile: ${tags.spectrum}; Spatial Signature: ${tags.spatial}; Energy Density: ${tags.energy}/10.
+
+[Subjective Experience]
+Mood: ${moodTags}.
+Narrative: ${anchor.semantic_push}.
+Key Elements: ${objectTags}.
+
+[Boundary Constraints]
+Exclusion: ${exclusion}.
+
+[Metadata Fingerprint]
+Genre: ${genre} | Era/Culture: ${anchor.cultural_weight} | Popularity Index: ${data.popularity_raw.toFixed(2)}.`; // [中文注释] 将流行度 (Visual Popularity) 编入向量文本，支持搜"热门歌曲"
     }
 }

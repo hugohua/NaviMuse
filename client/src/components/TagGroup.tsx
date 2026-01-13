@@ -39,7 +39,7 @@ const categoryVariants: Variants = {
     },
 };
 
-export const TagGroup: React.FC<Props> = ({ categories, selectedTags, onToggle }) => {
+export const TagGroup: React.FC<Props> = React.memo(({ categories, selectedTags, onToggle }) => {
     if (categories.length === 0) {
         return <div className="tag-loading">Loading tags...</div>;
     }
@@ -82,4 +82,4 @@ export const TagGroup: React.FC<Props> = ({ categories, selectedTags, onToggle }
             ))}
         </motion.div>
     );
-};
+});

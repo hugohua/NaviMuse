@@ -1,0 +1,134 @@
+/* Fixed container for UserNav */
+.user-nav-container {
+    position: fixed;
+    top: 1.5rem;
+    right: 1.5rem;
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Glassmorphism Button */
+.user-avatar-btn {
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--foreground);
+    cursor: pointer;
+    overflow: hidden;
+}
+
+.user-avatar-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: scale(1.05);
+    box-shadow: 0 8px 25px rgba(99, 102, 241, 0.25);
+    border-color: rgba(99, 102, 241, 0.3);
+}
+
+.user-avatar-btn:active {
+    transform: scale(0.95);
+}
+
+.user-icon {
+    width: 1.4rem;
+    height: 1.4rem;
+    color: var(--foreground);
+    opacity: 0.9;
+}
+
+/* Glassmorphism Dropdown */
+.user-dropdown-content {
+    width: 16rem;
+    min-width: 14rem;
+    z-index: 70;
+    overflow: hidden;
+    border-radius: 1rem;
+    background: rgba(20, 20, 30, 0.85);
+    /* Deep dark for contrast */
+    padding: 0.5rem;
+    color: var(--foreground);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    animation-duration: 0.2s;
+}
+
+[data-theme="light"] .user-dropdown-content {
+    background: rgba(255, 255, 255, 0.85);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+}
+
+/* Items */
+.user-dropdown-label {
+    padding: 0.75rem 0.5rem;
+}
+
+.user-label-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-bottom: 0.2rem;
+}
+
+.user-label-subtitle {
+    font-size: 0.75rem;
+    color: var(--muted-foreground);
+}
+
+.user-dropdown-separator {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.1);
+    margin: 0.5rem 0;
+}
+
+[data-theme="light"] .user-dropdown-separator {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+.user-dropdown-item {
+    position: relative;
+    display: flex;
+    cursor: pointer;
+    user-select: none;
+    align-items: center;
+    border-radius: 0.5rem;
+    padding: 0.6rem 0.75rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    outline: none;
+    transition: background-color 0.2s;
+    color: var(--muted-foreground);
+}
+
+.user-dropdown-item:hover,
+.user-dropdown-item:focus {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: var(--foreground);
+}
+
+[data-theme="light"] .user-dropdown-item:hover,
+[data-theme="light"] .user-dropdown-item:focus {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.item-icon {
+    margin-right: 0.75rem;
+    width: 1.1rem;
+    height: 1.1rem;
+    opacity: 0.8;
+}
+
+.user-dropdown-item:hover .item-icon {
+    opacity: 1;
+}

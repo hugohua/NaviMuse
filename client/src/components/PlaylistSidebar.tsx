@@ -18,7 +18,7 @@ interface PlaylistSidebarProps {
 
 type TabType = 'navimuse' | 'library';
 
-export const PlaylistSidebar: React.FC<PlaylistSidebarProps> = ({ refreshTrigger, onRefresh, className }) => {
+export const PlaylistSidebar: React.FC<PlaylistSidebarProps> = React.memo(({ refreshTrigger, onRefresh, className }) => {
     const { showPopup } = usePopup();
     const { playPlaylist, currentPlaylistId } = useAudioPlayer();
     const { setQueueOpen } = useQueuePanel();
@@ -196,7 +196,7 @@ export const PlaylistSidebar: React.FC<PlaylistSidebarProps> = ({ refreshTrigger
             </ScrollArea>
         </div>
     );
-};
+});
 
 function formatDuration(seconds?: number) {
     if (!seconds) return '0m';

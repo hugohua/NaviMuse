@@ -4,8 +4,14 @@ import compression from 'compression';
 import helmet from 'helmet';
 import { apiRouter } from './routes';
 import { errorHandler } from './middleware/error';
+import { initQueueDashboard } from './services/queue/queueMonitor';
 
 const app = express();
+
+// --- Queue Dashboard ---
+// Must be set up before body parsers if it has its own, but usually fine here.
+// We mount it at /admin/queues
+app.use('/admin/queues', initQueueDashboard());
 
 // Security Headers (Helmet)
 // Note: Content Security Policy might need tuning if you have external scripts, 

@@ -69,6 +69,7 @@ async function main() {
 
     // Chunk size for Enqueuing (The Queue itself handles batching logic usually, 
     // but here our 'job' IS a batch of 5. So we create jobs of 5 songs.)
+    // Optimized for True Batch: 10 songs -> 1 Meta + 1 Vec (Batch) = 2 reqs/job.
     const JOB_BATCH_SIZE = 10;
 
     // Get all pending again to iterate
