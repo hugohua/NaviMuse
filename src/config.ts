@@ -28,7 +28,7 @@ export const config = {
     },
     app: {
         port: parseInt(process.env.PORT || '3000', 10),
-        profileSampleSize: 200, // Number of songs to analyze for user profile
+        profileSampleSize: 500, // Number of songs to analyze for user profile
     },
     redis: {
         host: getEnv('REDIS_HOST', false) || '127.0.0.1',

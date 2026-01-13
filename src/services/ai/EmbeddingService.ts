@@ -117,6 +117,7 @@ export class EmbeddingService {
 [Acoustics & Soundstage]
 ${anchor.acoustic_model}.
 Spectrum Profile: ${tags.spectrum}; Spatial Signature: ${tags.spatial}; Energy Density: ${tags.energy}/10.
+Rhythmic Structure: ${tags.tempo_vibe}; Timbre Texture: ${tags.timbre_texture}.
 
 [Subjective Experience]
 Mood: ${moodTags}.

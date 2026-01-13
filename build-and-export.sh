@@ -52,9 +52,9 @@ trap restore_proxy EXIT
 VERSION="${1:-latest}"
 
 # 配置
-IMAGE_NAME="baofen14787/navimuse:${VERSION}"
+IMAGE_NAME="baofen14787/navimuse-v2:${VERSION}"
 OUTPUT_DIR="dockers"
-OUTPUT_FILE="${OUTPUT_DIR}/navimuse-${VERSION}.tar"
+OUTPUT_FILE="${OUTPUT_DIR}/navimuse-v2-${VERSION}.tar"
 
 # 颜色输出
 GREEN='\033[0;32m'

@@ -176,19 +176,39 @@ Filter and rank the best matches for this request.
             }
         });
 
-        // 1. 压缩歌单信息
-        const songsCSV = songs.map(s =>
-            `Title:${s.title}|Artist:${s.artist}|Genre:${s.genre}|Plays:${s.playCount}`
-        ).join('\n');
+        // 1. 压缩歌单信息 (Enhanced with Time & Play Count)
+        const songsCSV = songs.map(s => {
+            // Determine "Action Date" for Time Decay
+            // Priority: starredAt -> created -> 'Unknown'
+            // Format: YYYY-MM-DD
+            let dateStr = 'Unknown';
+            const dateSource = s.starredAt || s.created;
+            if (dateSource) {
+                try {
+                    dateStr = new Date(dateSource).toISOString().split('T')[0];
+                } catch (e) { }
+            }
+
+            // Special Marker for Top Played but not recently starred
+            if (!s.starredAt && (s.playCount > 20)) {
+                dateStr += " (HighPlays)";
+            }
+
+            return `Title:${s.title}|Artist:${s.artist}|Genre:${s.genre}|Plays:${s.playCount}|Date:${dateStr}`;
+        }).join('\n');
 
         // 2. 使用统一的 Prompt (从 systemPrompt.ts 导入)
         const userPrompt = `
 ### User Listening Session
 **Context**: Recent Listening Behavior Analysis
 **User Notes**: User typically listens late at night (23:00+).
+**Reference Date**: ${new Date().toISOString().split('T')[0]}
 
-**Time Decay Instructions**:
-在分析交互日志时，请赋予‘最近一周’的播放行为 2.0 的权重，‘半年前’的行为 0.5 的权重。我们需要一个**进化的**音乐 DNA，而不是历史堆砌。
+**Time Decay & Weighting Instructions**:
+1. **Recency Bias**: 请赋予‘最近一周’(Date close to Reference Date) 的播放行为 2.0 的权重。
+2. **Enduring Favorites**: 如果歌曲标记为 "(HighPlays)" 且日期较久，视为核心品味锚点，权重 1.5，不随时间衰减。
+3. **Ghost Data**: 对于 '半年前' 且低播放量的行为，权重降为 0.5。
+我们需要一个**进化的**音乐 DNA，而不是历史堆砌。
 
 Candidate Songs:
 ${songsCSV}

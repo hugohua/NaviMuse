@@ -16,7 +16,8 @@ import {
     getQueueStatus,
     setWorkerInstance,
     getWorkerInstance,
-    QueueStatus
+    QueueStatus,
+    redisConnection // Import Redis Connection
 } from './metadataQueue';
 
 export interface StartOptions {
@@ -51,10 +52,43 @@ export interface ExtendedQueueStatus extends QueueStatus {
 }
 
 /** 每个 Job 包含的歌曲数量 */
-const JOB_BATCH_SIZE = 10;
+const JOB_BATCH_SIZE = 20;
 
 class QueueManagerService {
     private pipelineState: PipelineState = 'idle';
+    private watchdogInterval: NodeJS.Timeout | null = null;
+
+    constructor() {
+        this.startWatchdog();
+    }
+
+    /**
+     * Start the Auto-Resume Watchdog
+     * Checks every minute if the queue should be resumed from a pause.
+     */
+    private startWatchdog() {
+        if (this.watchdogInterval) return;
+
+        console.log('[QueueManager] Starting Watchdog...');
+        this.watchdogInterval = setInterval(async () => {
+            try {
+                const isPaused = await metadataQueue.isPaused();
+                if (!isPaused) return;
+
+                const resumeAtStr = await redisConnection.get('navimuse:queue:resume_at');
+                if (!resumeAtStr) return;
+
+                const resumeAt = parseInt(resumeAtStr, 10);
+                if (Date.now() > resumeAt) {
+                    console.log(`[Watchdog] ⏰ Auto-Resuming Queue (Pause expired at ${new Date(resumeAt).toLocaleString()})`);
+                    await this.resume();
+                    await redisConnection.del('navimuse:queue:resume_at');
+                }
+            } catch (error) {
+                console.error('[Watchdog] Error checking queue status:', error);
+            }
+        }, 60 * 1000); // Check every minute
+    }
 
     /**
      * 启动元数据生成流水线
@@ -63,6 +97,7 @@ class QueueManagerService {
      * 3. 正常模式异步后台执行，立即返回
      */
     async start(options: StartOptions = {}): Promise<StartResult> {
+        console.log('[QueueManager] start() called with:', JSON.stringify(options));
         const { skipSync = false, limit, dryRun = false } = options;
 
         if (this.pipelineState !== 'idle') {
@@ -85,13 +120,25 @@ class QueueManagerService {
             }
         }
 
-        // Dry-Run 模式：仍需同步 DB 才能统计 pending，但这里我们假设只针对现有 DB
-        // 或者 Dry-Run 也应该很快，但如果包含 Sync 就会慢。
-        // 这里简化逻辑：Dry-Run 不做 Sync，只统计 DB 中现有的。
+        // Dry-Run 模式：仍需同步 DB 才能统计 pending
         if (dryRun) {
+            console.log('[QueueManager] Dry-Run mode enabled.');
+
+            if (!skipSync) {
+                console.log('[QueueManager] Dry-Run: Syncing from Navidrome...');
+                initDB();
+                await navidromeSyncService.syncFromNavidrome(limit);
+            }
+
+            // Re-init DB just in case, though mostly needed if we didn't sync
             initDB();
+
             const pendingCount = metadataRepo.getPendingSongs(limit || 100000).length;
+            console.log(`[QueueManager] Dry-Run Pending Count: ${pendingCount}`);
+
+            // Calculate estimated jobs
             const estimatedJobs = Math.ceil(pendingCount / JOB_BATCH_SIZE);
+
             return {
                 success: true,
                 message: `[Dry-Run Preview] 数据库中现有 ${pendingCount} 首待处理歌曲，预计创建 ${estimatedJobs} 个任务。`,

@@ -23,7 +23,7 @@ async function main() {
             dimensions: {
                 era_preference: '2020s',
                 energy_level: 'High',
-                vocal_style: 'Clear'
+                acoustic_environment: 'Studio'
             },
             blacklist_inference: []
         },

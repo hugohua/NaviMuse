@@ -56,15 +56,65 @@ export class UserProfileService {
 
         // 3. Generate Semantic Profile (AI Powered)
         // [中文注释] 使用 RecommendationService (Prompt 5.0) 生成深度画像
-        // 替换旧的 Heuristic Logic (getTopGenres -> AI Analysis)
+        // 策略更新: 融合 "Starred" (显式喜欢) + "Most Played" (隐式习惯)
+        // 目标样本数: config.app.profileSampleSize
 
         let userProfileObj;
         try {
-            // Note: We scan all starred songs, or limit to config.profileSampleSize inside specific logic if needed?
+            console.log(`[UserProfile] Fetching 'Most Played' songs for hybrid analysis...`);
+            // Fetch top 50 albums (approx 500+ songs) to ensure enough candidates for larger sample size
+            const mostPlayedSongs = await navidromeClient.getMostPlayed(50);
+
+            // Merge & Dedup
+            const combinedMap = new Map<string, any>();
+
+            // 1. Add Starred Songs (High Priority for Recency)
+            starredSongs.forEach(s => combinedMap.set(s.id, { ...s, _source: 'starred' }));
+
+            // 2. Add Most Played (Supplement)
+            mostPlayedSongs.forEach(s => {
+                if (!combinedMap.has(s.id)) {
+                    combinedMap.set(s.id, { ...s, _source: 'most_played' });
+                }
+            });
+
+            const allSongs = Array.from(combinedMap.values());
+            console.log(`[UserProfile] Merged Data: ${starredSongs.length} Starred + ${mostPlayedSongs.length} Most Played => ${allSongs.length} Total Unique.`);
+
+            // Smart Truncation Strategy (Target: config.app.profileSampleSize)
+            const TARGET_SIZE = config.app.profileSampleSize;
+            let finalSelection = allSongs;
+
+            if (allSongs.length > TARGET_SIZE) {
+                // Sort by a hybrid score:
+                // - Recently Starred: very high score
+                // - High Play Count: high score
+                // - Recently Added: medium score
+                finalSelection = allSongs.sort((a, b) => {
+                    const getScore = (s: any) => {
+                        let score = 0;
+                        // Rule 1: Recently Starred (Last 30 days) -> Boost 500
+                        if (s.starredAt) {
+                            const daysAgo = (Date.now() - new Date(s.starredAt).getTime()) / (1000 * 3600 * 24);
+                            if (daysAgo < 30) score += 500;
+                            // Decay for older stars
+                            else score += 100;
+                        }
+
+                        // Rule 2: Play Count -> Boost (up to 200)
+                        // Assume 100 plays is "saturation"
+                        score += Math.min(s.playCount, 100) * 2;
+
+                        return score;
+                    };
+                    return getScore(b) - getScore(a);
+                }).slice(0, TARGET_SIZE);
+            }
+
+            console.log(`[UserProfile] Final Selection for AI Analysis: ${finalSelection.length} songs.`);
+
             // recommendationService.analyzeUserProfile handles `songsCSV` internally but we pass raw songs.
-            // Let's pass top 100 recent starred to avoid token overflow if user has 1000 stared.
-            const recentStarred = starredSongs.slice(0, 100);
-            userProfileObj = await recommendationService.analyzeUserProfile(recentStarred);
+            userProfileObj = await recommendationService.analyzeUserProfile(finalSelection);
             console.log(`[UserProfile] AI Analysis Success. Title: ${userProfileObj.display_card.title}`);
         } catch (error) {
             console.error("[UserProfile] AI Analysis Failed, falling back to heuristics:", error);

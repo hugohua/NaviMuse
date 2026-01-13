@@ -1,6 +1,6 @@
 services:
   navimuse:
-    build: .
+    image: baofen14787/navimuse-v2:latest
     container_name: navimuse
     restart: unless-stopped
     ports:
@@ -27,7 +27,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     healthcheck:
-      test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/" ]
+      test: [ "CMD", "curl", "-f", "http://localhost:3000/" ]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -42,13 +42,13 @@ services:
     image: redis:7-alpine
     container_name: navimuse_redis
     restart: unless-stopped
-    command: redis-server --appendonly yes
+    command: redis-server --save 600 1
     volumes:
       - redis_data:/data
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
-      interval: 5s
-      timeout: 3s
+      interval: 10s
+      timeout: 5s
       retries: 5
 
 volumes:
