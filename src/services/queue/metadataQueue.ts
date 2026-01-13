@@ -179,12 +179,17 @@ export const startWorker = () => {
                 let pauseReason = "Rate Limit (Transient)";
 
                 if (isDailyQuota) {
-                    // Level 2: Daily Quota Exhausted -> Sleep until tomorrow 08:00
+                    // Level 2: Daily Quota Exhausted -> Sleep until 16:30 (Gemini resets at PT midnight ≈ UTC+8 16:00)
                     const now = new Date();
-                    const tomorrow = new Date(now);
-                    tomorrow.setDate(tomorrow.getDate() + 1);
-                    tomorrow.setHours(8, 0, 0, 0); // 08:00 AM next day
-                    pauseDurationMs = tomorrow.getTime() - now.getTime();
+                    const resumeTime = new Date(now);
+
+                    // If before 16:30 today, resume at 16:30 today; otherwise resume at 16:30 tomorrow
+                    resumeTime.setHours(16, 30, 0, 0);
+                    if (now >= resumeTime) {
+                        resumeTime.setDate(resumeTime.getDate() + 1);
+                    }
+
+                    pauseDurationMs = resumeTime.getTime() - now.getTime();
                     pauseReason = "Daily Quota Exhausted";
                 }
 
