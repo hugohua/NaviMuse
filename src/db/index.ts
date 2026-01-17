@@ -9,7 +9,11 @@ const dbPath = process.env.DB_PATH || path.join(process.cwd(), 'data', 'navimuse
 console.log(`[DB] Initializing Database at: ${dbPath} (CWD: ${process.cwd()})`);
 
 export const db = new Database(dbPath);
-db.pragma('journal_mode = WAL');
+
+// SQLite Performance Optimizations for large databases (1GB+)
+db.pragma('journal_mode = WAL');       // 并发读写优化
+db.pragma('cache_size = 20000');       // 约 20MB 缓存，大幅提升查询速度
+db.pragma('synchronous = NORMAL');     // 性能与安全的平衡点
 
 // Load sqlite-vec extension
 try {
@@ -178,7 +182,10 @@ const MIGRATIONS = [
     `ALTER TABLE smart_metadata ADD COLUMN timbre_texture TEXT;`,
     // 队列分离支持
     `ALTER TABLE smart_metadata ADD COLUMN embedding_status TEXT DEFAULT 'PENDING';`,
-    `CREATE INDEX IF NOT EXISTS idx_smart_metadata_embedding_status ON smart_metadata(embedding_status);`
+    `CREATE INDEX IF NOT EXISTS idx_smart_metadata_embedding_status ON smart_metadata(embedding_status);`,
+    // 部分索引：专门为待处理任务优化，只索引符合条件的行，体积极小，查询极快
+    `CREATE INDEX IF NOT EXISTS idx_pending_analysis ON smart_metadata(navidrome_id) WHERE last_analyzed IS NULL;`,
+    `CREATE INDEX IF NOT EXISTS idx_missing_json ON smart_metadata(navidrome_id) WHERE analysis_json IS NULL;`
 ];
 
 // Schema creation logic moved to initDB to prevent side-effects on import

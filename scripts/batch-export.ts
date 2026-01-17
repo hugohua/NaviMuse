@@ -2,7 +2,13 @@
  * 批量导出脚本 - 将待处理歌曲导出为阿里云百炼 Batch API 所需的 JSONL 格式
  * 
  * 使用方式:
- *   npx tsx scripts/batch-export.ts [--limit N]
+ *   npx tsx scripts/batch-export.ts [--limit N]           # 导出未分析的歌曲
+ *   npx tsx scripts/batch-export.ts --reprocess [--limit N]  # 导出 JSON 不完整的歌曲
+ * 
+ * 参数:
+ *   --limit N      限制导出数量
+ *   --reprocess    从 data/invalid_json_ids.txt 读取 ID 进行重处理
+ *                  (需先运行 npx tsx scripts/analyze-db-integrity.ts)
  * 
  * 输出:
  *   data/batch/batch_001.jsonl, batch_002.jsonl, ...
@@ -16,7 +22,7 @@ import path from 'path';
 // 配置
 const BATCH_DIR = path.join(process.cwd(), 'data', 'batch');
 const SONGS_PER_FILE = 10000; // 每个文件最多 10000 条请求 (安全边界)
-const SONGS_PER_REQUEST = 15; // 每个请求处理 15 首歌 (与实时方案一致)
+const SONGS_PER_REQUEST = 10; // 每个请求处理 10 首歌 
 const MODEL = process.env.DASHSCOPE_MODEL || 'qwen-plus';
 
 interface Song {
@@ -48,7 +54,7 @@ function buildBatchLine(songs: Song[], batchIndex: number): string {
                 { role: "system", content: METADATA_SYSTEM_PROMPT },
                 { role: "user", content: JSON.stringify(songsPayload) }
             ],
-            temperature: 0.7
+            temperature: 0.5
         }
     };
     return JSON.stringify(request);
@@ -59,22 +65,57 @@ async function main() {
     const args = process.argv.slice(2);
     const limitIndex = args.indexOf('--limit');
     const limit = limitIndex !== -1 ? parseInt(args[limitIndex + 1]) : undefined;
+    const reprocessMode = args.includes('--reprocess');
 
     console.log('[Batch Export] 初始化数据库...');
     initDB();
 
-    // 查询待处理歌曲
-    let query = `
-        SELECT navidrome_id, title, artist 
-        FROM smart_metadata 
-        WHERE last_analyzed IS NULL
-    `;
-    if (limit) {
-        query += ` LIMIT ${limit}`;
-    }
+    let songs: Song[];
 
-    const songs = db.prepare(query).all() as Song[];
-    console.log(`[Batch Export] 找到 ${songs.length} 首待处理歌曲`);
+    if (reprocessMode) {
+        // 重处理模式：从 invalid_json_ids.txt 读取需要重新分析的 ID
+        const invalidIdsFile = path.join(process.cwd(), 'data', 'invalid_json_ids.txt');
+        if (!fs.existsSync(invalidIdsFile)) {
+            console.error(`[Batch Export] 错误: ${invalidIdsFile} 不存在`);
+            console.error('请先运行 npx tsx scripts/analyze-db-integrity.ts 生成无效 ID 列表');
+            return;
+        }
+
+        const invalidIds = fs.readFileSync(invalidIdsFile, 'utf-8')
+            .split('\n')
+            .filter(id => id.trim().length > 0);
+
+        console.log(`[Batch Export] 重处理模式: 从 invalid_json_ids.txt 读取 ${invalidIds.length} 个 ID`);
+
+        if (invalidIds.length === 0) {
+            console.log('[Batch Export] 没有需要重处理的歌曲，退出');
+            return;
+        }
+
+        // 批量查询这些 ID 的歌曲信息
+        const placeholders = invalidIds.map(() => '?').join(',');
+        const idsToProcess = limit ? invalidIds.slice(0, limit) : invalidIds;
+        songs = db.prepare(`
+            SELECT navidrome_id, title, artist 
+            FROM smart_metadata 
+            WHERE navidrome_id IN (${idsToProcess.map(() => '?').join(',')})
+        `).all(...idsToProcess) as Song[];
+
+        console.log(`[Batch Export] 找到 ${songs.length} 首需要重处理的歌曲`);
+    } else {
+        // 正常模式：查询待处理歌曲 (未分析 UNION 分析结果丢失)
+        let query = `
+            SELECT navidrome_id, title, artist FROM smart_metadata WHERE last_analyzed IS NULL
+            UNION
+            SELECT navidrome_id, title, artist FROM smart_metadata WHERE analysis_json IS NULL
+        `;
+        if (limit) {
+            query += ` LIMIT ${limit}`;
+        }
+
+        songs = db.prepare(query).all() as Song[];
+        console.log(`[Batch Export] 找到 ${songs.length} 首待处理歌曲`);
+    }
 
     if (songs.length === 0) {
         console.log('[Batch Export] 没有待处理的歌曲，退出');
@@ -86,32 +127,67 @@ async function main() {
         fs.mkdirSync(BATCH_DIR, { recursive: true });
     }
 
-    // 1. 先将歌曲按 SONGS_PER_REQUEST (15首) 分组成请求
+    // --- 增量导出逻辑 ---
+    // 1. 读取现有映射，确定起始 batchIndex
+    let nextBatchId = 0;
+    const mappingFile = path.join(BATCH_DIR, 'batch_mapping.json');
+    let existingMapping: Record<string, string[]> = {};
+
+    if (fs.existsSync(mappingFile)) {
+        try {
+            existingMapping = JSON.parse(fs.readFileSync(mappingFile, 'utf-8'));
+            const keys = Object.keys(existingMapping);
+            if (keys.length > 0) {
+                // 提取 batch_123 中的数字
+                const maxId = keys
+                    .map(k => parseInt(k.replace('batch_', '')))
+                    .filter(n => !isNaN(n))
+                    .reduce((max, current) => Math.max(max, current), -1);
+                nextBatchId = maxId + 1;
+            }
+            console.log(`[Batch Export] 检测到已有映射，起始 Batch ID: ${nextBatchId}`);
+        } catch (e) {
+            console.warn('[Batch Export] 读取现有映射失败，将重新开始计数');
+        }
+    }
+
+    // 2. 扫描现有文件，确定起始 fileIndex
+    let nextFileId = 1;
+    const existingFiles = fs.readdirSync(BATCH_DIR).filter(f => f.match(/^batch_\d+\.jsonl$/));
+    if (existingFiles.length > 0) {
+        const maxFileId = existingFiles
+            .map(f => parseInt(f.replace('batch_', '').replace('.jsonl', '')))
+            .filter(n => !isNaN(n))
+            .reduce((max, current) => Math.max(max, current), 0);
+        nextFileId = maxFileId + 1;
+        console.log(`[Batch Export] 检测到已有文件，起始文件名: batch_${String(nextFileId).padStart(3, '0')}.jsonl`);
+    }
+
+    // 3. 构建请求，使用全局唯一的 batchIndex
     const requests: { songs: Song[], batchIndex: number }[] = [];
     for (let i = 0; i < songs.length; i += SONGS_PER_REQUEST) {
         requests.push({
             songs: songs.slice(i, i + SONGS_PER_REQUEST),
-            batchIndex: requests.length
+            batchIndex: nextBatchId + requests.length // 累加 offset
         });
     }
-    console.log(`[Batch Export] 共 ${requests.length} 个请求 (每请求 ${SONGS_PER_REQUEST} 首)`);
+    console.log(`[Batch Export] 生成 ${requests.length} 个新请求 (Batch ID: ${nextBatchId} -> ${nextBatchId + requests.length - 1})`);
 
-    // 2. 保存歌曲 ID 到批次的映射 (用于导入时匹配)
-    const batchMapping: Record<string, string[]> = {};
+    // 4. 更新并保存映射 (合并模式)
+    const newMapping: Record<string, string[]> = { ...existingMapping };
     for (const req of requests) {
-        batchMapping[`batch_${req.batchIndex}`] = req.songs.map(s => s.navidrome_id);
+        newMapping[`batch_${req.batchIndex}`] = req.songs.map(s => s.navidrome_id);
     }
-    const mappingFile = path.join(BATCH_DIR, 'batch_mapping.json');
-    fs.writeFileSync(mappingFile, JSON.stringify(batchMapping, null, 2), 'utf-8');
-    console.log(`[Batch Export] 保存 ID 映射: batch_mapping.json`);
+    fs.writeFileSync(mappingFile, JSON.stringify(newMapping, null, 2), 'utf-8');
+    console.log(`[Batch Export] 更新 ID 映射: batch_mapping.json`);
 
-    // 3. 将请求按 SONGS_PER_FILE 分文件写入
-    let fileIndex = 1;
+    // 5. 写入文件 (使用新的 fileIndex)
+    let currentFileId = nextFileId;
     let requestCount = 0;
 
     for (let i = 0; i < requests.length; i += SONGS_PER_FILE) {
         const chunk = requests.slice(i, i + SONGS_PER_FILE);
-        const fileName = `batch_${String(fileIndex).padStart(3, '0')}.jsonl`;
+        const fileName = `batch_${String(currentFileId).padStart(3, '0')}.jsonl`;
         const filePath = path.join(BATCH_DIR, fileName);
 
         const lines = chunk.map(req => buildBatchLine(req.songs, req.batchIndex));
@@ -120,10 +196,10 @@ async function main() {
         const songCount = chunk.reduce((sum, req) => sum + req.songs.length, 0);
         console.log(`[Batch Export] 写入 ${fileName} (${chunk.length} 请求, ${songCount} 首歌)`);
         requestCount += chunk.length;
-        fileIndex++;
+        currentFileId++;
     }
 
-    const totalFiles = fileIndex - 1;
+    const totalFiles = currentFileId - nextFileId;
 
     // 初始化任务跟踪文件
     const jobsFile = path.join(BATCH_DIR, 'batch_jobs.json');

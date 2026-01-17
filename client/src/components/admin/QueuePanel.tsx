@@ -3,17 +3,22 @@ import { api } from '../../api';
 import type { QueueStatus, QueueActionResult } from '../../api';
 import { Button } from '../ui/button';
 import {
-    Play, Pause, Square, RefreshCw, Zap, Database, FileJson,
-    Loader2, CheckCircle2, XCircle, AlertTriangle
+    Play, Pause, Square, RefreshCw, Database, FileJson, Clock,
+    Loader2, CheckCircle2, XCircle, AlertTriangle, Activity, ExternalLink, Layers
 } from 'lucide-react';
-import '../AdminMetadataView.css';
+import './QueuePanel.css';
 
-export function QueuePanel() {
+interface QueuePanelProps {
+    onClose?: () => void;
+}
+
+export function QueuePanel({ onClose }: QueuePanelProps) {
     const [status, setStatus] = useState<QueueStatus | null>(null);
     const [loading, setLoading] = useState(false);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info', text: string } | null>(null);
     const [showConfirm, setShowConfirm] = useState<'start' | 'stop' | null>(null);
+    const [activeTab, setActiveTab] = useState<'main' | 'metadata' | 'embedding'>('main');
 
     const fetchStatus = useCallback(async () => {
         setLoading(true);
@@ -29,7 +34,7 @@ export function QueuePanel() {
 
     useEffect(() => {
         fetchStatus();
-        const interval = setInterval(fetchStatus, 3000); // Faster refresh for better feedback
+        const interval = setInterval(fetchStatus, 3000);
         return () => clearInterval(interval);
     }, [fetchStatus]);
 
@@ -39,7 +44,6 @@ export function QueuePanel() {
             setActionLoading('preview');
             setMessage(null);
             try {
-                // Dry run first
                 const result = await api.startQueue({ dryRun: true });
                 if (result.pendingCount === 0) {
                     setMessage({ type: 'info', text: '没有待处理的歌曲。' });
@@ -58,13 +62,10 @@ export function QueuePanel() {
             }
             return;
         }
-
-        // Confirmed Start
         setShowConfirm(null);
         handleAction('start', () => api.startQueue());
     };
 
-    // Generic Action Handler
     const handleAction = async (action: string, fn: () => Promise<QueueActionResult>) => {
         setActionLoading(action);
         setMessage(null);
@@ -79,7 +80,6 @@ export function QueuePanel() {
         }
     };
 
-    // Stop Handler
     const handleStop = (confirmed = false) => {
         if (!confirmed) {
             setShowConfirm('stop');
@@ -90,13 +90,249 @@ export function QueuePanel() {
     };
 
     const mainStatus = status?.main;
-    // Pipeline active check for future use if API supports it explicitly
     const isPipelineActive = mainStatus?.pipelineState === 'syncing' || mainStatus?.pipelineState === 'enqueuing';
+    const hasActiveJobs = (mainStatus?.activeJobs || 0) > 0 || (mainStatus?.waitingJobs || 0) > 0;
+
+    const getProgress = () => {
+        if (!mainStatus) return 0;
+        const total = mainStatus.totalSongs || 1;
+        const completed = total - mainStatus.pendingSongs;
+        return Math.round((completed / total) * 100);
+    };
+
+    // 渲染主队列面板
+    const renderMainPanel = () => (
+        <>
+            {/* 状态卡片 */}
+            <div className="status-grid">
+                <div className="status-card">
+                    <Database className="status-icon" />
+                    <div className="status-info">
+                        <span className="status-label">数据库</span>
+                        <span className="status-value">{mainStatus?.totalSongs?.toLocaleString() || 0} 首歌曲</span>
+                    </div>
+                </div>
+
+                <div className="status-card">
+                    <Clock className="status-icon pending" />
+                    <div className="status-info">
+                        <span className="status-label">待分析</span>
+                        <span className="status-value">{mainStatus?.pendingSongs?.toLocaleString() || 0}</span>
+                    </div>
+                </div>
+
+                <div className="status-card">
+                    <Activity className={`status-icon ${hasActiveJobs ? 'active' : ''}`} />
+                    <div className="status-info">
+                        <span className="status-label">队列状态</span>
+                        <span className="status-value">
+                            {mainStatus?.isPaused ? '已暂停' :
+                                mainStatus?.pipelineState !== 'idle' ? '初始化中' :
+                                    hasActiveJobs ? '运行中' : '空闲'}
+                        </span>
+                    </div>
+                </div>
+
+                <div className="status-card">
+                    <RefreshCw className="status-icon" />
+                    <div className="status-info">
+                        <span className="status-label">完成率</span>
+                        <span className="status-value">{getProgress()}%</span>
+                    </div>
+                </div>
+            </div>
+
+            {/* 进度条 */}
+            <div className="progress-section">
+                <div className="progress-bar">
+                    <div className="progress-fill" style={{ width: `${getProgress()}%` }} />
+                </div>
+                <div className="progress-stats">
+                    <span>等待: {mainStatus?.waitingJobs || 0}</span>
+                    <span>处理中: {mainStatus?.activeJobs || 0}</span>
+                    <span>已完成: {mainStatus?.completedJobs || 0}</span>
+                    <span className="failed">失败: {mainStatus?.failedJobs || 0}</span>
+                </div>
+            </div>
+
+            {/* 操作按钮 */}
+            <div className="action-buttons">
+                <Button
+                    className="action-btn start"
+                    onClick={() => handleStart()}
+                    disabled={!!actionLoading || !!hasActiveJobs}
+                >
+                    {actionLoading === 'start' || actionLoading === 'preview' || isPipelineActive ? (
+                        <Loader2 className="animate-spin" />
+                    ) : (
+                        <Play />
+                    )}
+                    <span>启动任务</span>
+                </Button>
+
+                <Button
+                    className="action-btn"
+                    variant="outline"
+                    onClick={() => handleAction('resume', api.resumeQueue)}
+                    disabled={!!actionLoading || !mainStatus?.isPaused}
+                >
+                    {actionLoading === 'resume' ? <Loader2 className="animate-spin" /> : <Play />}
+                    <span>恢复</span>
+                </Button>
+
+                <Button
+                    className="action-btn stop"
+                    variant="destructive"
+                    onClick={() => handleStop()}
+                    disabled={!!actionLoading || !hasActiveJobs}
+                >
+                    {actionLoading === 'stop' ? <Loader2 className="animate-spin" /> : <Square />}
+                    <span>停止</span>
+                </Button>
+            </div>
+        </>
+    );
+
+    // 渲染子队列面板
+    const renderSubQueuePanel = (
+        queueType: 'metadata' | 'embedding',
+        queueStatus: QueueStatus['metadataOnly'] | QueueStatus['embeddingOnly'] | undefined,
+        startFn: () => Promise<QueueActionResult>,
+        pauseFn: () => Promise<QueueActionResult>,
+        resumeFn: () => Promise<QueueActionResult>,
+        stopFn: () => Promise<QueueActionResult>
+    ) => {
+        const hasActive = (queueStatus?.activeJobs || 0) > 0 || (queueStatus?.waitingJobs || 0) > 0;
+        const prefix = queueType === 'metadata' ? 'meta' : 'embed';
+
+        return (
+            <>
+                <div className="status-grid">
+                    <div className="status-card">
+                        <Clock className="status-icon pending" />
+                        <div className="status-info">
+                            <span className="status-label">待处理</span>
+                            <span className="status-value">{queueStatus?.pendingSongs?.toLocaleString() || 0}</span>
+                        </div>
+                    </div>
+
+                    <div className="status-card">
+                        <Activity className={`status-icon ${hasActive ? 'active' : ''}`} />
+                        <div className="status-info">
+                            <span className="status-label">队列状态</span>
+                            <span className="status-value">
+                                {queueStatus?.isPaused ? '已暂停' :
+                                    queueStatus?.isWorkerRunning ? '运行中' : '待机'}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className="status-card">
+                        <Layers className="status-icon" />
+                        <div className="status-info">
+                            <span className="status-label">等待任务</span>
+                            <span className="status-value">{queueStatus?.waitingJobs || 0}</span>
+                        </div>
+                    </div>
+
+                    <div className="status-card">
+                        <RefreshCw className="status-icon" />
+                        <div className="status-info">
+                            <span className="status-label">运行中</span>
+                            <span className="status-value">{queueStatus?.activeJobs || 0}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="progress-section">
+                    <div className="progress-stats">
+                        <span>等待: {queueStatus?.waitingJobs || 0}</span>
+                        <span>运行中: {queueStatus?.activeJobs || 0}</span>
+                        <span>已完成: {queueStatus?.completedJobs || 0}</span>
+                        <span className="failed">失败: {queueStatus?.failedJobs || 0}</span>
+                    </div>
+                </div>
+
+                <div className="action-buttons">
+                    <Button
+                        className="action-btn start"
+                        onClick={() => handleAction(`${prefix}Start`, startFn)}
+                        disabled={!!actionLoading}
+                    >
+                        {actionLoading === `${prefix}Start` ? <Loader2 className="animate-spin" /> : <Play />}
+                        <span>启动任务</span>
+                    </Button>
+
+                    <Button
+                        className="action-btn"
+                        variant="outline"
+                        onClick={() => handleAction(`${prefix}Resume`, resumeFn)}
+                        disabled={!!actionLoading || !queueStatus?.isPaused}
+                    >
+                        {actionLoading === `${prefix}Resume` ? <Loader2 className="animate-spin" /> : <Play />}
+                        <span>恢复</span>
+                    </Button>
+
+                    <Button
+                        className="action-btn stop"
+                        variant="destructive"
+                        onClick={() => handleAction(`${prefix}Stop`, stopFn)}
+                        disabled={!!actionLoading || !hasActive}
+                    >
+                        {actionLoading === `${prefix}Stop` ? <Loader2 className="animate-spin" /> : <Square />}
+                        <span>停止</span>
+                    </Button>
+                </div>
+            </>
+        );
+    };
 
     return (
-        <div className="queue-panel-content">
-            {/* Messages */}
-            {message && (
+        <div className="task-manager">
+            <div className="task-manager-header">
+                <h2>任务管理</h2>
+                {onClose && (
+                    <Button variant="ghost" size="icon" onClick={onClose}>
+                        <span className="text-xl">×</span>
+                    </Button>
+                )}
+            </div>
+
+            {/* Tab 切换 */}
+            <div className="queue-tabs">
+                <button
+                    className={`queue-tab ${activeTab === 'main' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('main')}
+                >
+                    <Database className="w-4 h-4" />
+                    <span>总队列</span>
+                </button>
+                <button
+                    className={`queue-tab ${activeTab === 'metadata' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('metadata')}
+                >
+                    <FileJson className="w-4 h-4" />
+                    <span>仅元数据</span>
+                </button>
+                <button
+                    className={`queue-tab ${activeTab === 'embedding' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('embedding')}
+                >
+                    <Layers className="w-4 h-4" />
+                    <span>向量处理</span>
+                </button>
+            </div>
+
+            {/* Pipeline Status Banner */}
+            {isPipelineActive && (
+                <div className="task-message info">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>{mainStatus?.pipelineState === 'syncing' ? '正在同步 Navidrome 数据...' : '正在创建任务队列...'}</span>
+                </div>
+            )}
+
+            {/* 消息提示 */}
+            {message && !isPipelineActive && (
                 <div className={`task-message ${message.type}`}>
                     {message.type === 'success' && <CheckCircle2 className="w-4 h-4" />}
                     {message.type === 'error' && <XCircle className="w-4 h-4" />}
@@ -106,25 +342,20 @@ export function QueuePanel() {
                 </div>
             )}
 
-            {/* Confirmation Dialog */}
+            {/* 确认对话框 */}
             {showConfirm && (
                 <div className="task-confirm">
                     <p>
                         {showConfirm === 'start'
-                            ? '确定要开始处理吗？这将消耗 AI 配额。'
-                            : '确定要停止并清空队列吗？所有待处理任务将被移除。'}
+                            ? '确认开始元数据生成任务？这将调用 AI API 处理所有未分析的歌曲。'
+                            : '确认停止并清空队列？所有待处理的任务将被删除。'}
                     </p>
                     <div className="confirm-buttons">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setShowConfirm(null)}
-                        >
+                        <Button variant="outline" onClick={() => setShowConfirm(null)}>
                             取消
                         </Button>
                         <Button
                             variant={showConfirm === 'stop' ? 'destructive' : 'default'}
-                            size="sm"
                             onClick={() => showConfirm === 'start' ? handleStart(true) : handleStop(true)}
                         >
                             确认
@@ -133,206 +364,45 @@ export function QueuePanel() {
                 </div>
             )}
 
-            {/* Status Cards */}
-            <div className="queue-status-grid">
-                {/* Main Queue */}
-                <div className="queue-card">
-                    <div className="queue-card-header">
-                        <Zap className="w-5 h-5" />
-                        <span>总队列 (Unified Queue)</span>
-                        <span className={`queue-status-badge ${mainStatus?.isPaused ? 'paused' : 'running'}`}>
-                            {mainStatus?.isPaused ? '已暂停' : isPipelineActive ? '初始化...' : '运行中'}
-                        </span>
-                    </div>
-                    <div className="queue-stats">
-                        <div className="queue-stat">
-                            <span className="queue-stat-value">{mainStatus?.pendingSongs?.toLocaleString() || 0}</span>
-                            <span className="queue-stat-label">待处理</span>
-                        </div>
-                        <div className="queue-stat">
-                            <span className="queue-stat-value">{mainStatus?.activeJobs || 0}</span>
-                            <span className="queue-stat-label">进行中</span>
-                        </div>
-                        <div className="queue-stat">
-                            <span className="queue-stat-value">{mainStatus?.waitingJobs || 0}</span>
-                            <span className="queue-stat-label">等待中</span>
-                        </div>
-                        <div className="queue-stat">
-                            <span className="queue-stat-value">{mainStatus?.failedJobs || 0}</span>
-                            <span className="queue-stat-label">已失败</span>
-                        </div>
-                    </div>
-                    <div className="queue-actions">
-                        <Button
-                            size="sm"
-                            onClick={() => handleStart()}
-                            disabled={!!actionLoading || !!showConfirm}
-                        >
-                            {actionLoading === 'start' || actionLoading === 'preview' ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : <Play className="w-4 h-4" />}
-                            开始
-                        </Button>
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleAction('pause', api.pauseQueue)}
-                            disabled={!!actionLoading}
-                        >
-                            <Pause className="w-4 h-4" /> 暂停
-                        </Button>
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleAction('resume', api.resumeQueue)}
-                            disabled={!!actionLoading}
-                        >
-                            <RefreshCw className="w-4 h-4" /> 恢复
-                        </Button>
-                        <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => handleStop()}
-                            disabled={!!actionLoading}
-                        >
-                            <Square className="w-4 h-4" /> 停止
-                        </Button>
-                    </div>
+            {loading && !status ? (
+                <div className="task-loading">
+                    <Loader2 className="animate-spin" />
+                    <span>加载中...</span>
                 </div>
+            ) : status ? (
+                <>
+                    {activeTab === 'main' && renderMainPanel()}
+                    {activeTab === 'metadata' && renderSubQueuePanel(
+                        'metadata',
+                        status.metadataOnly,
+                        () => api.startMetadataOnlyQueue(100),
+                        api.pauseMetadataOnlyQueue,
+                        api.resumeMetadataOnlyQueue,
+                        api.stopMetadataOnlyQueue
+                    )}
+                    {activeTab === 'embedding' && renderSubQueuePanel(
+                        'embedding',
+                        status.embeddingOnly,
+                        () => api.startEmbeddingOnlyQueue(200),
+                        api.pauseEmbeddingOnlyQueue,
+                        api.resumeEmbeddingOnlyQueue,
+                        api.stopEmbeddingOnlyQueue
+                    )}
 
-                {/* Metadata Only Queue */}
-                <div className="queue-card">
-                    <div className="queue-card-header">
-                        <FileJson className="w-5 h-5" />
-                        <span>仅元数据 (Metadata)</span>
-                        <span className={`queue-status-badge ${status?.metadataOnly?.isPaused ? 'paused' : 'running'}`}>
-                            {status?.metadataOnly?.isPaused ? '已暂停' : status?.metadataOnly?.isWorkerRunning ? '运行中' : '待机'}
-                        </span>
+                    {/* Bull Dashboard 链接 */}
+                    <div className="dashboard-link">
+                        <a href="http://localhost:5173/admin/queues" target="_blank" rel="noopener noreferrer">
+                            <ExternalLink className="w-4 h-4" />
+                            <span>打开 Bull Dashboard 查看详细信息</span>
+                        </a>
                     </div>
-                    <div className="queue-stats">
-                        <div className="queue-stat">
-                            <span className="queue-stat-value">{status?.metadataOnly?.pendingSongs?.toLocaleString() || 0}</span>
-                            <span className="queue-stat-label">待处理</span>
-                        </div>
-                        <div className="queue-stat">
-                            <span className="queue-stat-value">{status?.metadataOnly?.waitingJobs || 0}</span>
-                            <span className="queue-stat-label">等待中</span>
-                        </div>
-                        <div className="queue-stat">
-                            <span className="queue-stat-value">{status?.metadataOnly?.activeJobs || 0}</span>
-                            <span className="queue-stat-label">运行中</span>
-                        </div>
-                        <div className="queue-stat">
-                            <span className="queue-stat-value">{status?.metadataOnly?.failedJobs || 0}</span>
-                            <span className="queue-stat-label">失败</span>
-                        </div>
-                    </div>
-                    <div className="queue-actions">
-                        <Button
-                            size="sm"
-                            onClick={() => handleAction('metaOnlyStart', () => api.startMetadataOnlyQueue(100))}
-                            disabled={!!actionLoading}
-                        >
-                            <Play className="w-4 h-4" /> 开始
-                        </Button>
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleAction('metaOnlyPause', api.pauseMetadataOnlyQueue)}
-                            disabled={!!actionLoading}
-                        >
-                            <Pause className="w-4 h-4" /> 暂停
-                        </Button>
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleAction('metaOnlyResume', api.resumeMetadataOnlyQueue)}
-                            disabled={!!actionLoading}
-                        >
-                            <RefreshCw className="w-4 h-4" /> 恢复
-                        </Button>
-                        <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => handleAction('metaOnlyStop', api.stopMetadataOnlyQueue)}
-                            disabled={!!actionLoading}
-                        >
-                            <Square className="w-4 h-4" /> 停止
-                        </Button>
-                    </div>
+                </>
+            ) : (
+                <div className="task-error">
+                    <XCircle />
+                    <span>无法获取队列状态</span>
                 </div>
-
-                {/* Embedding Only Queue */}
-                <div className="queue-card">
-                    <div className="queue-card-header">
-                        <Database className="w-5 h-5" />
-                        <span>向量处理 (Vector)</span>
-                        <span className={`queue-status-badge ${status?.embeddingOnly?.isPaused ? 'paused' : 'running'}`}>
-                            {status?.embeddingOnly?.isPaused ? '已暂停' : status?.embeddingOnly?.isWorkerRunning ? '运行中' : '待机'}
-                        </span>
-                    </div>
-                    <div className="queue-stats">
-                        <div className="queue-stat">
-                            <span className="queue-stat-value">{status?.embeddingOnly?.pendingSongs?.toLocaleString() || 0}</span>
-                            <span className="queue-stat-label">待处理</span>
-                        </div>
-                        <div className="queue-stat">
-                            <span className="queue-stat-value">{status?.embeddingOnly?.waitingJobs || 0}</span>
-                            <span className="queue-stat-label">等待中</span>
-                        </div>
-                        <div className="queue-stat">
-                            <span className="queue-stat-value">{status?.embeddingOnly?.activeJobs || 0}</span>
-                            <span className="queue-stat-label">运行中</span>
-                        </div>
-                        <div className="queue-stat">
-                            <span className="queue-stat-value">{status?.embeddingOnly?.failedJobs || 0}</span>
-                            <span className="queue-stat-label">失败</span>
-                        </div>
-                    </div>
-                    <div className="queue-actions">
-                        <Button
-                            size="sm"
-                            onClick={() => handleAction('embedOnlyStart', () => api.startEmbeddingOnlyQueue(200))}
-                            disabled={!!actionLoading}
-                        >
-                            <Play className="w-4 h-4" /> 开始
-                        </Button>
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleAction('embedOnlyPause', api.pauseEmbeddingOnlyQueue)}
-                            disabled={!!actionLoading}
-                        >
-                            <Pause className="w-4 h-4" /> 暂停
-                        </Button>
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleAction('embedOnlyResume', api.resumeEmbeddingOnlyQueue)}
-                            disabled={!!actionLoading}
-                        >
-                            <RefreshCw className="w-4 h-4" /> 恢复
-                        </Button>
-                        <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => handleAction('embedOnlyStop', api.stopEmbeddingOnlyQueue)}
-                            disabled={!!actionLoading}
-                        >
-                            <Square className="w-4 h-4" /> 停止
-                        </Button>
-                    </div>
-                </div>
-            </div>
-
-            {/* Refresh Button */}
-            <div className="queue-footer">
-                <Button variant="ghost" size="sm" onClick={fetchStatus} disabled={loading}>
-                    <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                    {loading ? '刷新中...' : '刷新状态'}
-                </Button>
-                <span className="queue-footer-hint">每3秒自动刷新</span>
-            </div>
+            )}
         </div>
     );
 }
