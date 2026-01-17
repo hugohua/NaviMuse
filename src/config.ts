@@ -24,15 +24,27 @@ export const config = {
         baseURL: getEnv('OPENAI_BASE_URL') || 'https://dashscope.aliyuncs.com/compatible-mode/v1',
         model: getEnv('OPENAI_MODEL') || 'qwen3-max',
         modelList: (getEnv('OPENAI_MODEL_LIST', false) || '').split(',').filter(Boolean),
-        temperature: parseFloat(process.env.AI_TEMPERATURE || '0.7'),
+        temperature: parseFloat(process.env.AI_TEMPERATURE || '0.5'),
     },
     app: {
         port: parseInt(process.env.PORT || '3000', 10),
         profileSampleSize: 500, // Number of songs to analyze for user profile
     },
+    embedding: {
+        provider: (getEnv('EMBEDDING_PROVIDER', false) || 'dashscope') as 'dashscope' | 'gemini',
+        model: getEnv('EMBEDDING_MODEL', false) || 'text-embedding-v3',
+        dimensions: parseInt(getEnv('EMBEDDING_DIMENSIONS', false) || '1024', 10),
+    },
     redis: {
         host: getEnv('REDIS_HOST', false) || '127.0.0.1',
         port: parseInt(getEnv('REDIS_PORT', false) || '6379', 10),
+    },
+    queue: {
+        // Default to higher concurrency for paid tiers (User request)
+        concurrency: parseInt(getEnv('QUEUE_CONCURRENCY', false) || '5', 10),
+        // Jobs per minute. Default 50 jobs * 15 songs = 1000 songs/min
+        rateLimitMax: parseInt(getEnv('QUEUE_RATE_LIMIT_MAX', false) || '50', 10),
+        batchSize: parseInt(getEnv('QUEUE_BATCH_SIZE', false) || '15', 10),
     }
 };
 

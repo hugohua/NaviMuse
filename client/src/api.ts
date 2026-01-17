@@ -1,4 +1,30 @@
-import type { DiscoveryMode, CuratorResponse, ApiResponse, TagCategory } from './types';
+import type {
+    DiscoveryMode,
+    CuratorResponse,
+    ApiResponse,
+    TagCategory,
+    QueueStatus,
+    QueueActionResult,
+    UserProfile,
+    Playlist,
+    PlaylistDetail,
+    AISettings,
+    ModelInfo
+} from './types';
+
+export type {
+    QueueStatus,
+    QueueActionResult,
+    AISettings,
+    ModelInfo,
+    DiscoveryMode,
+    CuratorResponse,
+    ApiResponse,
+    TagCategory,
+    UserProfile,
+    Playlist,
+    PlaylistDetail
+};
 
 export const api = {
     /**
@@ -15,7 +41,7 @@ export const api = {
     /**
      * Generate Playlist
      */
-    generatePlaylist: async (prompt: string, mode: DiscoveryMode, userProfile?: import('./types').UserProfile): Promise<CuratorResponse> => {
+    generatePlaylist: async (prompt: string, mode: DiscoveryMode, userProfile?: UserProfile): Promise<CuratorResponse> => {
         const res = await fetch('/api/generate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -34,7 +60,7 @@ export const api = {
     /**
      * Analyze User Profile
      */
-    analyzeUserProfile: async (): Promise<import('./types').UserProfile> => {
+    analyzeUserProfile: async (): Promise<UserProfile> => {
         const res = await fetch('/api/profile/analyze', {
             method: 'POST'
         });
@@ -44,13 +70,13 @@ export const api = {
             throw new Error(json.error || 'Unknown error for profile analysis');
         }
 
-        return json.data as unknown as import('./types').UserProfile;
+        return json.data as unknown as UserProfile;
     },
 
     /**
      * Get Playlists
      */
-    getPlaylists: async (): Promise<import('./types').Playlist[]> => {
+    getPlaylists: async (): Promise<Playlist[]> => {
         const res = await fetch('/api/playlists');
         if (!res.ok) {
             throw new Error(`Failed to fetch playlists: ${res.statusText}`);
@@ -61,7 +87,7 @@ export const api = {
     /**
      * Get Playlist Details
      */
-    getPlaylist: async (id: string): Promise<import('./types').PlaylistDetail> => {
+    getPlaylist: async (id: string): Promise<PlaylistDetail> => {
         const res = await fetch(`/api/playlists/${id}`);
         if (!res.ok) {
             throw new Error(`Failed to fetch playlist details: ${res.statusText}`);
@@ -106,6 +132,29 @@ export const api = {
         if (!json.success) {
             throw new Error(json.error || 'Failed to unstar song');
         }
+    },
+
+    // --- Settings ---
+
+    getSettings: async (): Promise<AISettings> => {
+        const res = await fetch('/api/settings');
+        if (!res.ok) throw new Error(`Failed to fetch settings: ${res.statusText}`);
+        return res.json();
+    },
+
+    getOpenRouterModels: async (): Promise<ModelInfo[]> => {
+        const res = await fetch('/api/settings/models/openrouter');
+        const json = await res.json();
+        return json.models || [];
+    },
+
+    saveSettings: async (settings: AISettings): Promise<void> => {
+        const res = await fetch('/api/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ settings })
+        });
+        if (!res.ok) throw new Error(`Failed to save settings: ${res.statusText}`);
     },
 
     // --- Queue Management ---
@@ -168,27 +217,25 @@ export const api = {
             throw new Error(`Failed to fetch songs: ${res.statusText}`);
         }
         return res.json();
+    },
+
+    // --- 分离队列操作 ---
+
+    /**
+     * 启动仅元数据生成任务
+     */
+    startMetadataOnlyQueue: async (limit?: number): Promise<QueueActionResult> => {
+        const url = limit ? `/api/queue/metadata-only/start?limit=${limit}` : '/api/queue/metadata-only/start';
+        const res = await fetch(url, { method: 'POST' });
+        return res.json();
+    },
+
+    /**
+     * 启动仅向量生成任务
+     */
+    startEmbeddingOnlyQueue: async (limit?: number): Promise<QueueActionResult> => {
+        const url = limit ? `/api/queue/embedding-only/start?limit=${limit}` : '/api/queue/embedding-only/start';
+        const res = await fetch(url, { method: 'POST' });
+        return res.json();
     }
 };
-
-// --- Queue Types ---
-export interface QueueStatus {
-    isPaused: boolean;
-    isWorkerRunning: boolean;
-    activeJobs: number;
-    waitingJobs: number;
-    completedJobs: number;
-    failedJobs: number;
-    delayedJobs: number;
-    pendingSongs: number;
-    totalSongs: number;
-    pipelineState?: 'idle' | 'syncing' | 'enqueuing';
-}
-
-export interface QueueActionResult {
-    success: boolean;
-    message: string;
-    pendingCount?: number;
-    jobsCreated?: number;
-    dryRun?: boolean;
-}

@@ -48,9 +48,8 @@ export class CuratorService {
         console.log('[Curator] Delegating to HybridSearchService...');
 
         const hybridResult = await hybridSearchService.search(scene, {
-            candidateLimit: mode === 'fresh' ? 100 : 50, // Broader search for fresh?
+            candidateLimit: mode === 'fresh' ? 300 : (mode === 'familiar' ? 100 : 150),
             finalLimit: 20,
-            useAI: true,
             userId: 'admin',
             mode: mode
         });

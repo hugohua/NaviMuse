@@ -1,85 +1,93 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { OpenRouter } from '@openrouter/sdk';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import { IAIService } from './IAIService';
 import { METADATA_SYSTEM_PROMPT, buildCuratorSystemPrompt, USER_PROFILE_SYSTEM_PROMPT } from './systemPrompt';
 import { MetadataJSON } from '../../types';
 import nodeFetch from 'node-fetch';
 import { config } from '../../config';
+import { systemRepo } from '../../db';
 
 /**
- * Gemini AI 服务实现
- * 处理与 Google Gemini API 的交互，包括元数据生成和 Proxy 配置
+ * Gemini Service (via OpenRouter)
+ * Replaces official Google SDK with OpenRouter SDK to access Gemini and other models.
  */
 export class GeminiService implements IAIService {
-    private genAI: GoogleGenerativeAI;
-    private modelName: string;
+    private openRouter: OpenRouter;
+    private defaultModel: string;
+    private lastPrompts: { system: string; user: string } = { system: '', user: '' };
 
     constructor() {
-        const apiKey = process.env.GEMINI_API_KEY;
-        if (!apiKey) throw new Error("Missing GEMINI_API_KEY in environment variables");
+        // Use OpenRouter API Key
+        const apiKey = process.env.OPENROUTER_API_KEY;
+        if (!apiKey) throw new Error("Missing OPENROUTER_API_KEY in environment variables");
 
-        // --- Proxy Configuration Pattern from SonicFlow ---
-        // Verify proxy environment variable
+        // --- Proxy Configuration (Enhanced for OpenRouter SDK) ---
         const proxyUrl = process.env.HTTPS_PROXY;
 
         if (proxyUrl) {
             console.log(`[GeminiService] Configuring Proxy: ${proxyUrl}`);
             const agent = new HttpsProxyAgent(proxyUrl);
 
-            // Override global fetch to force proxy usage
-            // The SDK uses fetch internally. This intercepts it.
+            // Override global fetch to force proxy usage and handle Request objects from SDK
             // @ts-ignore
-            global.fetch = async (url: string, options: any) => {
-                return nodeFetch(url, {
-                    ...options,
-                    agent: agent
-                });
+            global.fetch = async (input: RequestInfo, init?: RequestInit) => {
+                let url = '';
+                let options: any = {
+                    agent: agent,
+                    ...init
+                };
+
+                if (typeof input === 'string') {
+                    url = input;
+                } else if (input && typeof input === 'object' && 'url' in input) {
+                    // Convert Native Request to compatible options for node-fetch
+                    const req = input as any;
+                    url = req.url;
+                    options.method = options.method || req.method;
+                    options.headers = options.headers || req.headers;
+
+                    // Handle body if present in Request and not in init (e.g. JSON payload)
+                    if (!options.body && req.body) {
+                        try {
+                            // Assuming JSON text body for SDK usage
+                            options.body = await req.text();
+                        } catch (e) { /* ignore if body is not readable */ }
+                    }
+                }
+
+                return nodeFetch(url, options);
             };
         }
         // --------------------------------------------------
 
-        this.genAI = new GoogleGenerativeAI(apiKey);
+        this.openRouter = new OpenRouter({
+            apiKey: apiKey
+            // defaultHeaders removed as it is not supported in SDKOptions
+        });
 
-        // Use model from Env or fallback to known good model
-        this.modelName = process.env.GEMINI_MODEL || "gemini-3-flash-preview";
-        console.log(`[GeminiService] Initialized with Model: ${this.modelName}`);
+        // Default to OpenRouter's ID for Gemini 2.0 Flash (Free)
+        // Users can override via GEMINI_MODEL
+        this.defaultModel = process.env.GEMINI_MODEL || "google/gemini-2.0-flash-exp:free";
+        console.log(`[GeminiService] Initialized. Default Model: ${this.defaultModel}`);
     }
 
-    /**
-     * 解析并记录 Gemini API 429 错误中的配额详情
-     * 帮助分析 RPM (每分钟) 和 RPD (每日) 限额策略
-     */
-    private logQuotaDetails(errorDetails: any[]) {
-        console.log('\n========== [Gemini Quota Details] ==========');
+    private getModelName(): string {
+        const dbModel = systemRepo.getSetting('ai_model');
+        if (dbModel) return dbModel;
+        return this.defaultModel;
+    }
 
-        for (const detail of errorDetails) {
-            if (detail['@type']?.includes('QuotaFailure')) {
-                const violations = detail.violations || [];
-                for (const v of violations) {
-                    const metric = v.quotaMetric || 'Unknown';
-                    const quotaId = v.quotaId || 'Unknown';
-                    const quotaValue = v.quotaValue || 'Unknown';
-                    const dimensions = v.quotaDimensions || {};
-
-                    // 解析配额类型
-                    let quotaType = 'Unknown';
-                    if (quotaId.includes('PerMinute')) quotaType = 'RPM (每分钟)';
-                    else if (quotaId.includes('PerDay')) quotaType = 'RPD (每日)';
-                    else if (quotaId.includes('FreeTier')) quotaType = 'Free Tier';
-
-                    console.log(`[Quota] Type: ${quotaType}`);
-                    console.log(`[Quota] Metric: ${metric}`);
-                    console.log(`[Quota] Limit: ${quotaValue}`);
-                    console.log(`[Quota] Model: ${dimensions.model || 'Unknown'}`);
-                    console.log(`[Quota] ID: ${quotaId}`);
-                }
-            } else if (detail['@type']?.includes('RetryInfo')) {
-                const retryDelay = detail.retryDelay || 'Unknown';
-                console.log(`[Quota] Suggested Retry After: ${retryDelay}`);
-            }
+    // Helper to safely extract text content from OpenRouter response
+    private extractContent(content: string | undefined | null | any[]): string {
+        if (!content) return "";
+        if (typeof content === 'string') return content;
+        if (Array.isArray(content)) {
+            return content
+                .filter(c => c.type === 'text')
+                .map(c => c.text || '')
+                .join('');
         }
-
-        console.log('=============================================\n');
+        return "";
     }
 
     async generateMetadata(artist: string, title: string): Promise<MetadataJSON> {
@@ -88,78 +96,56 @@ export class GeminiService implements IAIService {
     }
 
     async generateBatchMetadata(songs: { id: string | number, title: string, artist: string }[]): Promise<MetadataJSON[]> {
-        // Note: requestOptions are no longer needed for proxy as we hijacked fetch
-        const model = this.genAI.getGenerativeModel({
-            model: this.modelName,
-            systemInstruction: METADATA_SYSTEM_PROMPT,
-            generationConfig: {
-                temperature: config.ai.temperature
-            }
-        });
-
         const userPrompt = JSON.stringify(songs);
+        const currentModel = this.getModelName();
 
         try {
-            const result = await model.generateContent(userPrompt);
-            const response = await result.response;
-            const text = response.text();
+            // @ts-ignore
+            const result = await this.openRouter.chat.send({
+                model: currentModel,
+                messages: [
+                    { role: 'system', content: METADATA_SYSTEM_PROMPT },
+                    { role: 'user', content: userPrompt }
+                ],
+                temperature: config.ai.temperature, // OpenRouter supports this
+            });
 
-            // Local parsing for batch
+            const text = this.extractContent(result.choices[0]?.message?.content);
+
+            // Clean Markdown
             const cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
 
             console.log(`[GeminiService Debug] Raw Response Length: ${text.length}`);
             if (text.length < 500) console.log(`[GeminiService Debug] Raw Response Preview: ${text}`);
 
-            // Use dynamic import for json5 or just standard JSON if prompt is good?
-            // SonicFlow used json5, let's stick to import
             const JSON5 = (await import('json5')).default;
             const json = JSON5.parse(cleaned);
 
             if (Array.isArray(json)) {
                 return (json as MetadataJSON[]).map(item => ({
                     ...item,
-                    llm_model: this.modelName
+                    llm_model: currentModel
                 }));
             }
             return [{
                 ...(json as MetadataJSON),
-                llm_model: this.modelName
+                llm_model: currentModel
             }];
         } catch (error: any) {
             console.error("[GeminiService] Batch Metadata Generation Failed:", error);
-
-            // Parse and log quota details from 429 errors
-            if (error.status === 429 && error.errorDetails) {
-                this.logQuotaDetails(error.errorDetails);
+            // OpenRouter error handling (look for 429)
+            if (error?.code === 429 || error?.message?.includes('429')) {
+                console.log("[Quota] Rate Limit Hit (429)");
             }
-
-            throw error; // Re-throw to trigger Circuit Breaker in Worker
+            throw error;
         }
     }
 
     async rerankSongs(query: string, candidates: any[]): Promise<string[]> {
-        // ... (existing rerank logic, though we might deprecate it later)
-        // For brevity in this edit, I am keeping it or replacing it if needed, 
-        // but task is to ADD curatePlaylist.
-
-        // Actually, let's keep rerankSongs as is for backward compat if any, 
-        // and append curatePlaylist. 
-        // Wait, replace_file_content needs me to replace the block I'm targeting.
-        // I will target the end of rerankSongs and append curatePlaylist.
-
-        // Let's re-read rerankSongs closing brace to be sure.
         return this.curatePlaylist(query, candidates).then(res => res.tracks.map(t => t.songId));
     }
 
     async curatePlaylist(scenePrompt: string, candidates: any[], limit: number = 20, userProfile?: any): Promise<import('../../types').CuratorResponse> {
-        const model = this.genAI.getGenerativeModel({
-            model: this.modelName,
-            generationConfig: {
-                temperature: 0.7, // Higher creativity for curation
-                responseMimeType: "application/json"
-            }
-        });
-
         // 1. Compress Candidates
         const candidatesCSV = candidates.map(c => {
             let tagsArray: string[] = [];
@@ -171,7 +157,7 @@ export class GeminiService implements IAIService {
             return `ID:${c.navidrome_id}|T:${c.title}|A:${c.artist}|Mood:${c.mood || ''}|Tags:${(tagsArray || []).slice(0, 3).join(',')}`;
         }).join('\n');
 
-        // 2. 使用统一的 Prompt (从 systemPrompt.ts 导入)
+        // 2. Build Prompt
         const systemPrompt = buildCuratorSystemPrompt(limit, userProfile);
         const userPrompt = `
 Current Request: "${scenePrompt}"
@@ -182,12 +168,22 @@ ${candidatesCSV}
 Instructions:
 Filter and rank the best matches for this request.
 `;
-        console.log(systemPrompt, '<--')
+        this.lastPrompts = { system: systemPrompt, user: userPrompt };
+        const currentModel = this.getModelName();
+
         try {
-            console.log("[GeminiService] curating playlist with prompt...");
-            const result = await model.generateContent(systemPrompt + "\n\n" + userPrompt);
-            const response = await result.response;
-            const text = response.text();
+            console.log(`[GeminiService] Curating playlist using ${currentModel}...`);
+            // @ts-ignore
+            const result = await this.openRouter.chat.send({
+                model: currentModel,
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userPrompt }
+                ],
+                temperature: 0.7
+            });
+
+            const text = this.extractContent(result.choices[0]?.message?.content);
             console.log("[GeminiService] Raw AI Response:", text.substring(0, 100) + "...");
 
             const JSON5 = (await import('json5')).default;
@@ -197,7 +193,6 @@ Filter and rank the best matches for this request.
             return json as import('../../types').CuratorResponse;
         } catch (error) {
             console.error("[GeminiService] Curation Failed:", error);
-            // Fallback: Return top N candidates
             return {
                 scene: "Fallback Selection",
                 playlistName: "Vector Matches",
@@ -211,19 +206,8 @@ Filter and rank the best matches for this request.
     }
 
     async analyzeUserProfile(songs: import('../../types').Song[]): Promise<import('../../types').UserProfile> {
-        const model = this.genAI.getGenerativeModel({
-            model: this.modelName,
-            generationConfig: {
-                temperature: 0.8,
-                responseMimeType: "application/json"
-            }
-        });
-
-        // 1. 压缩歌单信息 (Enhanced with Time & Play Count)
+        // 1. Compress Song Data
         const songsCSV = songs.map(s => {
-            // Determine "Action Date" for Time Decay
-            // Priority: starredAt -> created -> 'Unknown'
-            // Format: YYYY-MM-DD
             let dateStr = 'Unknown';
             const dateSource = s.starredAt || s.created;
             if (dateSource) {
@@ -231,16 +215,13 @@ Filter and rank the best matches for this request.
                     dateStr = new Date(dateSource).toISOString().split('T')[0];
                 } catch (e) { }
             }
-
-            // Special Marker for Top Played but not recently starred
             if (!s.starredAt && (s.playCount > 20)) {
                 dateStr += " (HighPlays)";
             }
-
             return `Title:${s.title}|Artist:${s.artist}|Genre:${s.genre}|Plays:${s.playCount}|Date:${dateStr}`;
         }).join('\n');
 
-        // 2. 使用统一的 Prompt (从 systemPrompt.ts 导入)
+        // 2. Build User Prompt
         const userPrompt = `
 ### User Listening Session
 **Context**: Recent Listening Behavior Analysis
@@ -259,15 +240,21 @@ ${songsCSV}
 ### Prompt Objective:
 请基于上述数据，为我生成一份具备高检索价值的 Technical Profile 以及一份极具共鸣感的 Display Card。
 `;
-
-        console.log('[GeminiService] Generating User Profile with Songs:', songs.length);
+        const currentModel = this.getModelName();
+        console.log(`[GeminiService] Generating User Profile with ${currentModel} (Songs: ${songs.length})`);
 
         try {
-            const result = await model.generateContent(USER_PROFILE_SYSTEM_PROMPT + "\n\n" + userPrompt);
-            const response = await result.response;
-            const text = response.text();
+            // @ts-ignore
+            const result = await this.openRouter.chat.send({
+                model: currentModel,
+                messages: [
+                    { role: 'system', content: USER_PROFILE_SYSTEM_PROMPT },
+                    { role: 'user', content: userPrompt }
+                ],
+                temperature: 0.8
+            });
 
-            // Clean and Parse
+            const text = this.extractContent(result.choices[0]?.message?.content);
             const cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
             const JSON5 = (await import('json5')).default;
             return JSON5.parse(cleaned) as import('../../types').UserProfile;
@@ -276,4 +263,9 @@ ${songsCSV}
             throw new Error("AI User Profile Generation Failed");
         }
     }
+
+    getLastPrompts() {
+        return this.lastPrompts;
+    }
 }
+

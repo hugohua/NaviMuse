@@ -5,7 +5,7 @@
  */
 
 import { navidromeSyncService } from '../navidromeSync';
-import { metadataRepo, initDB } from '../../db';
+import { metadataRepo, systemRepo, initDB } from '../../db';
 import {
     addToQueue,
     startWorker,
@@ -51,8 +51,9 @@ export interface ExtendedQueueStatus extends QueueStatus {
     pipelineState: PipelineState;
 }
 
-/** 每个 Job 包含的歌曲数量 */
-const JOB_BATCH_SIZE = 20;
+import { config } from '../../config';
+
+// JOB_BATCH_SIZE moved to dynamic retrieval
 
 class QueueManagerService {
     private pipelineState: PipelineState = 'idle';
@@ -137,7 +138,8 @@ class QueueManagerService {
             console.log(`[QueueManager] Dry-Run Pending Count: ${pendingCount}`);
 
             // Calculate estimated jobs
-            const estimatedJobs = Math.ceil(pendingCount / JOB_BATCH_SIZE);
+            const batchSize = parseInt(systemRepo.getSetting('queue_batch_size') || String(config.queue.batchSize), 10);
+            const estimatedJobs = Math.ceil(pendingCount / batchSize);
 
             return {
                 success: true,
@@ -198,9 +200,10 @@ class QueueManagerService {
                 // Ensure Queue is not paused
                 await resumeQueue();
 
+                const batchSize = parseInt(systemRepo.getSetting('queue_batch_size') || String(config.queue.batchSize), 10);
                 let jobsCreated = 0;
-                for (let i = 0; i < allPending.length; i += JOB_BATCH_SIZE) {
-                    const batch = allPending.slice(i, i + JOB_BATCH_SIZE);
+                for (let i = 0; i < allPending.length; i += batchSize) {
+                    const batch = allPending.slice(i, i + batchSize);
                     await addToQueue(batch);
                     jobsCreated++;
                 }

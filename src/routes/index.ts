@@ -39,9 +39,15 @@ router.post('/queue/pause', QueueController.pause);
 router.post('/queue/resume', QueueController.resume);
 router.post('/queue/stop', QueueController.stop);
 router.get('/queue/status', QueueController.status);
+// 分离队列
+router.post('/queue/metadata-only/start', QueueController.startMetadataOnly);
+router.post('/queue/embedding-only/start', QueueController.startEmbeddingOnly);
 
 // --- Admin / Inspection ---
 import { AdminController } from '../controllers/admin.controller';
+import settingsRouter from './settings';
+
 router.get('/admin/songs', AdminController.getSongs);
+router.use('/settings', settingsRouter);
 
 export const apiRouter = router;

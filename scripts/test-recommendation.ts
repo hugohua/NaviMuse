@@ -20,16 +20,22 @@ async function main() {
         technical_profile: {
             summary_tags: ['Pop', 'Rock'],
             taste_anchors: ['Artist A'],
-            dimensions: {
-                era_preference: '2020s',
-                energy_level: 'High',
-                acoustic_environment: 'Studio'
+            acoustic_fingerprint: {
+                preferred_spectrum: "Full",
+                preferred_spatiality: "Intimate",
+                tempo_vibe_bias: "Static",
+                timbre_preference: "Organic"
             },
+            vector_search_anchor: "Mock anchor text",
             blacklist_inference: []
         },
         display_card: {
             title: 'Test Persona',
-            message: 'Test Message'
+            message: 'Test Message',
+            ui_theme: {
+                primary_color: '#000000',
+                visual_metaphor: 'Mock Metaphor'
+            }
         }
     };
 

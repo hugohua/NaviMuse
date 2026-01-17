@@ -65,38 +65,50 @@ export const UserProfileCard: React.FC<Props> = ({ profile }) => {
                     </div>
                 )}
 
-                {/* Dimensions Grid */}
-                <div className="dimension-grid">
-                    <div className="dimension-item">
-                        <div className="dimension-label-row">
-                            <History className="dimension-icon" />
-                            <span className="dimension-label">偏好年代</span>
+                {/* Acoustic Fingerprint Grid */}
+                {technical_profile.acoustic_fingerprint && (
+                    <div className="dimension-grid fingerprint-grid">
+                        <div className="dimension-item">
+                            <div className="dimension-label-row">
+                                <Waves className="dimension-icon" />
+                                <span className="dimension-label">频谱偏好</span>
+                            </div>
+                            <span className="dimension-value">
+                                {technical_profile.acoustic_fingerprint.preferred_spectrum}
+                            </span>
                         </div>
-                        <span className="dimension-value" title={technical_profile.dimensions.era_preference}>
-                            {technical_profile.dimensions.era_preference}
-                        </span>
-                    </div>
 
-                    <div className="dimension-item">
-                        <div className="dimension-label-row">
-                            <Zap className="dimension-icon" />
-                            <span className="dimension-label">能量等级</span>
+                        <div className="dimension-item">
+                            <div className="dimension-label-row">
+                                <History className="dimension-icon" />
+                                <span className="dimension-label">空间感</span>
+                            </div>
+                            <span className="dimension-value">
+                                {technical_profile.acoustic_fingerprint.preferred_spatiality}
+                            </span>
                         </div>
-                        <span className="dimension-value" title={technical_profile.dimensions.energy_level}>
-                            {technical_profile.dimensions.energy_level}
-                        </span>
-                    </div>
 
-                    <div className="dimension-item">
-                        <div className="dimension-label-row">
-                            <Waves className="dimension-icon" />
-                            <span className="dimension-label">听感空间</span>
+                        <div className="dimension-item">
+                            <div className="dimension-label-row">
+                                <Zap className="dimension-icon" />
+                                <span className="dimension-label">律动倾向</span>
+                            </div>
+                            <span className="dimension-value">
+                                {technical_profile.acoustic_fingerprint.tempo_vibe_bias}
+                            </span>
                         </div>
-                        <span className="dimension-value" title={technical_profile.dimensions.acoustic_environment}>
-                            {technical_profile.dimensions.acoustic_environment}
-                        </span>
+
+                        <div className="dimension-item">
+                            <div className="dimension-label-row">
+                                <Music2 className="dimension-icon" />
+                                <span className="dimension-label">音色质感</span>
+                            </div>
+                            <span className="dimension-value">
+                                {technical_profile.acoustic_fingerprint.timbre_preference}
+                            </span>
+                        </div>
                     </div>
-                </div>
+                )}
 
                 {/* Blacklist */}
                 {technical_profile.blacklist_inference?.length > 0 && (

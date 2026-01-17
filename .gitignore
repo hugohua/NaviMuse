@@ -6,3 +6,5 @@ dist/
 srcipts/
 config.js
 dockers/*
+data/batch/*
+data/curation_payloads/*

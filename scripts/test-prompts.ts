@@ -1,43 +1,14 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import { HttpsProxyAgent } from 'https-proxy-agent';
-import nodeFetch from 'node-fetch';
 import * as fs from 'fs';
-import * as path from 'path';
 import dotenv from 'dotenv';
+import { db } from '../src/db';
+import { GeminiService } from '../src/services/ai/GeminiService';
+import { METADATA_SYSTEM_PROMPT } from '../src/services/ai/systemPrompt';
 
 // Load environment variables
 dotenv.config();
 
-// --- Proxy Configuration (Copied from GeminiService.ts) ---
-const proxyUrl = process.env.HTTPS_PROXY;
-if (proxyUrl) {
-    console.log(`[Test] Configuring Proxy: ${proxyUrl}`);
-    const agent = new HttpsProxyAgent(proxyUrl);
-    // @ts-ignore
-    global.fetch = async (url: string, options: any) => {
-        return nodeFetch(url, {
-            ...options,
-            agent: agent
-        });
-    };
-}
-// --------------------------------------------------------
-
-const apiKey = process.env.GEMINI_API_KEY;
-if (!apiKey) {
-    console.error("Error: GEMINI_API_KEY not found in .env");
-    process.exit(1);
-}
-
-const genAI = new GoogleGenerativeAI(apiKey);
-const modelName = process.env.GEMINI_MODEL || "gemini-3-flash-preview";
-
 // --- Configuration ---
 const OUTPUT_FILE = 'prompt_test_results.txt';
-
-// --- Database Integration ---
-import { db } from '../src/db';
-import { METADATA_SYSTEM_PROMPT } from '../src/services/ai/systemPrompt';
 
 console.log("[Test] Fetching 10 random songs from database...");
 const TEST_DATA = db.prepare(`
@@ -56,62 +27,52 @@ if (TEST_DATA.length === 0) {
 console.log("[Test] Songs to process:");
 TEST_DATA.forEach(s => console.log(`  - ${s.title} (${s.artist})`));
 
-
 const TEST_DATA_JSON = JSON.stringify(TEST_DATA);
 
-// *** DEFINE PROMPTS HERE ***
+// *** DEFINE PROMPTS HERE (Not used in direct Service call but logged) ***
 const PROMPT_VARIANTS: Record<string, string> = {
     "Live_System_Prompt": METADATA_SYSTEM_PROMPT
 };
 
-
 // --- Main Execution ---
 
 async function runTests() {
-    console.log(`Starting Prompt Tests using model: ${modelName}`);
+    console.log(`Starting Prompt Tests using GeminiService (OpenRouter)`);
     console.log(`Target Output File: ${OUTPUT_FILE} `);
+
+    // Initialize Service
+    const service = new GeminiService();
 
     // Clear existing file
     fs.writeFileSync(OUTPUT_FILE, `-- - Prompt Test Results(${new Date().toLocaleString()})-- -\n\n`);
 
-    for (const [name, systemPrompt] of Object.entries(PROMPT_VARIANTS)) {
-        console.log(`\nTesting: ${name}...`);
+    console.log(`\nTesting GeminiService.generateBatchMetadata()...`);
 
-        try {
-            const model = genAI.getGenerativeModel({
-                model: modelName,
-                systemInstruction: systemPrompt,
-                generationConfig: {
-                    temperature: 0.7,
-                }
-            });
+    try {
+        const result = await service.generateBatchMetadata(TEST_DATA);
 
-            const result = await model.generateContent(TEST_DATA_JSON);
-            const response = await result.response;
-            const text = response.text();
+        console.log(`  -> Success. Result count: ${result.length} `);
 
-            console.log(`  -> Success.Length: ${text.length} `);
+        // Format Output
+        const outputBlock = `
+=================================================
+Ref: Live System Prompt
+${METADATA_SYSTEM_PROMPT.trim()}
 
-            // Format Output
-            const outputBlock = `
-==================================================
-提示词 (${name})：
-${systemPrompt.trim()}
-
-生成结果 (${name})：
-${text.trim()}
-==================================================
+生成结果 (Via GeminiService/OpenRouter)：
+${JSON.stringify(result, null, 2)}
+=================================================
 \n`;
 
-            fs.appendFileSync(OUTPUT_FILE, outputBlock);
+        fs.appendFileSync(OUTPUT_FILE, outputBlock);
 
-        } catch (error) {
-            console.error(`  -> Failed: ${error}`);
-            fs.appendFileSync(OUTPUT_FILE, `\n=== ERROR (${name}) ===\n${error}\n\n`);
-        }
+    } catch (error) {
+        console.error(`  -> Failed: ${error}`);
+        fs.appendFileSync(OUTPUT_FILE, `\n=== ERROR ===\n${error}\n\n`);
     }
 
     console.log(`\nAll tests completed. Results saved to ${OUTPUT_FILE}`);
 }
 
 runTests();
+

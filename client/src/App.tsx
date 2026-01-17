@@ -24,6 +24,8 @@ import './App.css';
 
 import { useHashLocation } from './hooks/use-hash-location';
 
+import { SettingsPage } from './pages/SettingsPage';
+
 function AppContent() {
   const { showPopup } = usePopup();
   const isDesktop = useMediaQuery('(min-width: 768px)');
@@ -31,6 +33,8 @@ function AppContent() {
   // Routing Logic
   const [hash, navigate] = useHashLocation();
   const showAdmin = hash === '#admin';
+  const showSettings = hash === '#settings';
+
   const setShowAdmin = (show: boolean) => {
     navigate(show ? '#admin' : '');
   };
@@ -125,8 +129,30 @@ function AppContent() {
 
   if (showAdmin) {
     return (
-      <div className="app-root relative z-50">
-        <AdminMetadataView onClose={() => setShowAdmin(false)} />
+      <div className="app-root relative z-50 bg-gray-900 flex flex-col">
+        <ScrollArea className="flex-1 h-full">
+          <div className="p-4 pb-20">
+            <Button variant="ghost" onClick={() => navigate('')} className="mb-4 text-white hover:text-blue-300">
+              ← Back to Home
+            </Button>
+            <AdminMetadataView />
+          </div>
+        </ScrollArea>
+      </div>
+    );
+  }
+
+  if (showSettings) {
+    return (
+      <div className="app-root relative z-50 bg-gray-900 flex flex-col">
+        <ScrollArea className="flex-1 h-full">
+          <div className="p-4 pb-20">
+            <Button variant="ghost" onClick={() => navigate('')} className="mb-4 text-white hover:text-blue-300">
+              ← Back to Home
+            </Button>
+            <SettingsPage />
+          </div>
+        </ScrollArea>
       </div>
     );
   }
@@ -166,6 +192,15 @@ function AppContent() {
                     title="Click for Admin View"
                   />
                   <h1 className="app-title" onClick={() => setShowAdmin(true)} style={{ cursor: 'pointer' }}>NaviMuse</h1>
+
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => navigate('#settings')}
+                    className="ml-2 text-xs opacity-50 hover:opacity-100"
+                  >
+                    Settings
+                  </Button>
                 </div>
                 <p className="app-subtitle">AI Music Curator</p>
               </header>

@@ -1,11 +1,13 @@
 import OpenAI from 'openai';
 import { IAIService } from './IAIService';
-import { METADATA_SYSTEM_PROMPT, parseAIResponse } from './systemPrompt';
+import { METADATA_SYSTEM_PROMPT, parseAIResponse, buildCuratorSystemPrompt } from './systemPrompt';
 import { config } from '../../config';
-import { MetadataJSON } from '../../types';
+import { systemRepo } from '../../db';
+import { MetadataJSON, CuratorResponse } from '../../types';
 
 export class QwenService implements IAIService {
     private client: OpenAI;
+    private lastPrompts: { system: string; user: string } = { system: '', user: '' };
 
     constructor() {
         this.client = new OpenAI({
@@ -14,16 +16,23 @@ export class QwenService implements IAIService {
         });
     }
 
+    private getModelName(): string {
+        const dbModel = systemRepo.getSetting('ai_model');
+        if (dbModel) return dbModel;
+        return config.ai.model;
+    }
+
     async generateMetadata(artist: string, title: string): Promise<MetadataJSON> {
         // Construct JSON Array input as per new Prompt V5
         const inputPayload = [
             { id: "req_1", title, artist } // dummy ID for single request
         ];
         const userPrompt = JSON.stringify(inputPayload);
+        const currentModel = this.getModelName();
 
         try {
             const response = await this.client.chat.completions.create({
-                model: config.ai.model,
+                model: currentModel,
                 messages: [
                     { role: 'system', content: METADATA_SYSTEM_PROMPT },
                     { role: 'user', content: userPrompt }
@@ -41,10 +50,11 @@ export class QwenService implements IAIService {
 
     async generateBatchMetadata(songs: { id: string | number, title: string, artist: string }[]): Promise<MetadataJSON[]> {
         const userPrompt = JSON.stringify(songs);
+        const currentModel = this.getModelName();
 
         try {
             const response = await this.client.chat.completions.create({
-                model: config.ai.model,
+                model: currentModel,
                 messages: [
                     { role: 'system', content: METADATA_SYSTEM_PROMPT },
                     { role: 'user', content: userPrompt }
@@ -53,7 +63,7 @@ export class QwenService implements IAIService {
             });
 
             const content = response.choices[0]?.message?.content || "";
-            const parsed = parseAIResponse(content as any);
+            // const parsed = parseAIResponse(content as any);
 
             // parseAIResponse handles single object return by force, 
             // we might need to adjust it to return raw array if used internally,
@@ -72,17 +82,18 @@ export class QwenService implements IAIService {
             // Let's implement local parsing for batch for now to minimize ripple.
 
             const cleaned = content.replace(/```json/g, '').replace(/```/g, '').trim();
-            const json = (await import('json5')).default.parse(cleaned);
+            const JSON5 = (await import('json5')).default;
+            const json = JSON5.parse(cleaned);
 
             if (Array.isArray(json)) {
                 return (json as MetadataJSON[]).map(item => ({
                     ...item,
-                    llm_model: config.ai.model
+                    llm_model: currentModel
                 }));
             } else {
                 return [{
                     ...(json as MetadataJSON),
-                    llm_model: config.ai.model
+                    llm_model: currentModel
                 }];
             }
 
@@ -97,13 +108,73 @@ export class QwenService implements IAIService {
         return candidates.map(c => String(c.navidrome_id));
     }
 
-    async curatePlaylist(scenePrompt: string, candidates: any[], limit?: number, userProfile?: any): Promise<import('../../types').CuratorResponse> {
-        console.warn("[QwenService] Curation not implemented.");
-        return {
-            scene: "Qwen Not Supported",
-            playlistName: "Fallback",
-            description: "Curation requires Gemini Service",
-            tracks: []
-        };
+    async curatePlaylist(scenePrompt: string, candidates: any[], limit: number = 20, userProfile?: any): Promise<CuratorResponse> {
+        // 1. 压缩候选歌曲信息
+        const candidatesCSV = candidates.map(c => {
+            let tagsArray: string[] = [];
+            try {
+                if (Array.isArray(c.tags)) tagsArray = c.tags;
+                else if (typeof c.tags === 'string') tagsArray = JSON.parse(c.tags);
+            } catch (e) { /* ignore parse error */ }
+
+            return `ID:${c.navidrome_id}|T:${c.title}|A:${c.artist}|Mood:${c.mood || ''}|Tags:${(tagsArray || []).slice(0, 3).join(',')}`;
+        }).join('\n');
+
+        const systemPrompt = buildCuratorSystemPrompt(limit, userProfile);
+        const userPrompt = `
+Current Request: "${scenePrompt}"
+
+Candidate Pool (Top 50 Vector Matches):
+${candidatesCSV}
+
+Instructions:
+Filter and rank the best matches for this request.
+Output ONLY valid JSON (no markdown blocks).
+`;
+        this.lastPrompts = { system: systemPrompt, user: userPrompt };
+        const currentModel = this.getModelName();
+
+        try {
+            console.log(`[QwenService] Curating playlist using ${currentModel}...`);
+            const response = await this.client.chat.completions.create({
+                model: currentModel,
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userPrompt }
+                ],
+                temperature: 0.7,
+            });
+
+            const content = response.choices[0]?.message?.content || "";
+            console.log("[QwenService] Raw AI Response:", content.substring(0, 100) + "...");
+
+            // 解析 JSON
+            const cleaned = content.replace(/```json/g, '').replace(/```/g, '').trim();
+            const JSON5 = (await import('json5')).default;
+            const json = JSON5.parse(cleaned);
+
+            return json as CuratorResponse;
+        } catch (error) {
+            console.error("[QwenService] Curation Failed:", error);
+            // Fallback: 返回向量相似度最高的 N 首
+            return {
+                scene: "Fallback Selection",
+                playlistName: "Vector Matches",
+                description: "AI curation failed, showing top matches.",
+                tracks: candidates.slice(0, limit).map(c => ({
+                    songId: String(c.navidrome_id),
+                    reason: "Vector Similarity"
+                }))
+            };
+        }
+    }
+
+    async analyzeUserProfile(songs: any[]): Promise<any> {
+        console.warn("[QwenService] analyzeUserProfile not implemented.");
+        return {};
+    }
+
+    getLastPrompts() {
+        return this.lastPrompts;
     }
 }

@@ -52,18 +52,26 @@ export type DiscoveryMode = 'default' | 'familiar' | 'fresh';
 export interface UserProfile {
     technical_profile: {
         summary_tags: string[];
-        taste_anchors: string[]; // Top 3-5 iconic artists
-        dimensions: {
-            era_preference: string;
-            energy_level: string; // 0.0-1.0 Scale with Description
-            acoustic_environment: string; // [New] E.g., Dry/Wet, Studio/Live
+        taste_anchors: string[];
+        acoustic_fingerprint: {
+            preferred_spectrum: "High" | "Mid" | "Low" | "Full";
+            preferred_spatiality: "Dry" | "Wet" | "Huge" | "Intimate";
+            tempo_vibe_bias: "Static" | "Drifting" | "Driving" | "Explosive";
+            timbre_preference: "Organic" | "Metallic" | "Electronic" | "Grainy";
         };
+        vector_search_anchor: string; // 1024D optimized
         blacklist_inference: string[];
     };
+
+    curation_logic?: {
+        stage_2_instruction: string;
+        energy_mapping: string;
+    };
+
     display_card: {
         title: string;
-        message: string; // 100-150 words
-        ui_theme?: { // [New] UI Theme
+        message: string;
+        ui_theme: {
             primary_color: string;
             visual_metaphor: string;
         };

@@ -1,4 +1,4 @@
-import { MetadataJSON } from '../../types';
+import { MetadataJSON, CuratorResponse, UserProfile } from '../../types';
 
 export interface IAIService {
     generateMetadata(artist: string, title: string): Promise<MetadataJSON>;
@@ -24,5 +24,7 @@ export interface IAIService {
      * @param limit Target number of songs
      * @param userProfile Optional user persona context
      */
-    curatePlaylist(scenePrompt: string, candidates: any[], limit?: number, userProfile?: any): Promise<import('../../types').CuratorResponse>;
+    curatePlaylist(scenePrompt: string, candidates: any[], limit?: number, userProfile?: any): Promise<CuratorResponse>;
+    analyzeUserProfile(songs: any[]): Promise<UserProfile>;
+    getLastPrompts?(): { system: string; user: string };
 }

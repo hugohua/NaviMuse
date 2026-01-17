@@ -117,12 +117,15 @@ CREATE TABLE IF NOT EXISTS smart_metadata (
 
 `;
 
-const createVecTable = `
+// 向量维度从 config 读取
+const getCreateVecTableSQL = (dim: number) => `
 CREATE VIRTUAL TABLE IF NOT EXISTS vec_songs USING vec0(
-    song_id INTEGER PRIMARY KEY,   -- 对应 smart_metadata 的 rowid
-    embedding float[768]           -- 768维向量数据
+    song_id INTEGER PRIMARY KEY,
+    embedding float[${dim}]
 );
 `;
+
+
 
 const createUserProfilesTable = `
 CREATE TABLE IF NOT EXISTS user_profiles (
@@ -172,7 +175,10 @@ const MIGRATIONS = [
     `CREATE INDEX IF NOT EXISTS idx_smart_metadata_last_analyzed ON smart_metadata(last_analyzed);`,
     `CREATE INDEX IF NOT EXISTS idx_smart_metadata_title_artist ON smart_metadata(title, artist);`,
     `ALTER TABLE smart_metadata ADD COLUMN tempo_vibe TEXT;`,
-    `ALTER TABLE smart_metadata ADD COLUMN timbre_texture TEXT;`
+    `ALTER TABLE smart_metadata ADD COLUMN timbre_texture TEXT;`,
+    // 队列分离支持
+    `ALTER TABLE smart_metadata ADD COLUMN embedding_status TEXT DEFAULT 'PENDING';`,
+    `CREATE INDEX IF NOT EXISTS idx_smart_metadata_embedding_status ON smart_metadata(embedding_status);`
 ];
 
 // Schema creation logic moved to initDB to prevent side-effects on import
@@ -183,6 +189,7 @@ let getByIdStmt: Database.Statement;
 let getAllIdsStmt: Database.Statement;
 let updateAnalysisStmt: Database.Statement;
 let getPendingSongsStmt: Database.Statement;
+let getPendingEmbeddingsStmt: Database.Statement;
 let getRowIdStmt: Database.Statement;
 let insertVectorStmt: Database.Statement;
 
@@ -196,7 +203,12 @@ let getVectorByNavidromeIdStmt: Database.Statement;
 export function initDB() {
     try {
         db.exec(createSmartMetadataTable);
-        db.exec(createVecTable);
+
+
+
+        // 使用配置的维度创建向量表
+        db.exec(getCreateVecTableSQL(config.embedding.dimensions));
+
         db.exec(createFtsTable);
         db.exec(createUserProfilesTable);
         db.exec(createUserInteractionsTable);
@@ -263,6 +275,14 @@ export function initDB() {
             SELECT navidrome_id, title, artist 
             FROM smart_metadata 
             WHERE last_analyzed IS NULL
+            LIMIT ?
+        `);
+
+        getPendingEmbeddingsStmt = db.prepare(`
+            SELECT navidrome_id, title, artist, analysis_json 
+            FROM smart_metadata 
+            WHERE last_analyzed IS NOT NULL 
+              AND (embedding_status IS NULL OR embedding_status = 'PENDING')
             LIMIT ?
         `);
 
@@ -341,20 +361,13 @@ export const metadataRepo = {
         return getAllIdsStmt.all() as any[];
     },
     getPendingSongs: (limit: number): { navidrome_id: string, title: string, artist: string }[] => {
-        console.log(`[DB-Debug] getPendingSongs called with limit: ${limit} (type: ${typeof limit})`);
-        try {
-            // Raw count check
-            const count = db.prepare('SELECT count(*) as c FROM smart_metadata').get() as any;
-            const pending = db.prepare('SELECT count(*) as c FROM smart_metadata WHERE last_analyzed IS NULL').get() as any;
-            console.log(`[DB-Debug] Total rows: ${count.c}, Pending rows: ${pending.c}`);
-
-            const result = getPendingSongsStmt.all(limit) as any[];
-            console.log(`[DB-Debug] Statement returned ${result.length} rows`);
-            return result;
-        } catch (e: any) {
-            console.error('[DB-Debug] Error in getPendingSongs:', e);
-            return [];
-        }
+        return getPendingSongsStmt.all(limit) as any[];
+    },
+    /**
+     * 获取已有元数据但向量未生成的歌曲
+     */
+    getPendingEmbeddings: (limit: number): { navidrome_id: string, title: string, artist: string, analysis_json: string }[] => {
+        return getPendingEmbeddingsStmt.all(limit) as any[];
     },
     // Vector search support
     getSongRowId: (navidromeId: string): number | undefined => {
@@ -369,6 +382,11 @@ export const metadataRepo = {
     saveVector: (songId: number, embedding: number[]) => {
         // Ensure input is Float32Array for better-sqlite3 + sqlite-vec serialization
         const buffer = new Float32Array(embedding);
+        try {
+            db.prepare('DELETE FROM vec_songs WHERE song_id = ?').run(songId);
+        } catch (e) {
+            // Ignore if not found
+        }
         return insertVectorStmt.run({ song_id: BigInt(songId), embedding: buffer });
     },
     // New Search Method
@@ -409,6 +427,10 @@ export const metadataRepo = {
 
     updateStatus: (id: string, status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED') => {
         db.prepare(`UPDATE smart_metadata SET processing_status = ? WHERE navidrome_id = ?`).run(status, id);
+    },
+
+    updateEmbeddingStatus: (id: string, status: 'PENDING' | 'COMPLETED' | 'FAILED') => {
+        db.prepare(`UPDATE smart_metadata SET embedding_status = ? WHERE navidrome_id = ?`).run(status, id);
     },
 
     saveBatchAnalysis: (updates: { songId: string, metaUpdate: any, vector?: number[] }[]) => {
@@ -518,5 +540,44 @@ export const userProfileRepo = {
         // better-sqlite3 with sqlite-vec usually returns Float32Array if configured, or Buffer.
         // Let's assume Buffer and convert.
         return new Float32Array(row.embedding.buffer ? row.embedding.buffer : row.embedding);
+    }
+};
+
+const createSystemSettingsTable = `
+CREATE TABLE IF NOT EXISTS system_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT,
+    updated_at TEXT
+);
+`;
+
+// Initialize settings table first
+try {
+    db.exec(createSystemSettingsTable);
+} catch (e: any) {
+    console.error("[DB] Failed to create system_settings table:", e);
+}
+
+const upsertSettingStmt = db.prepare(`
+    INSERT INTO system_settings (key, value, updated_at)
+    VALUES (?, ?, ?)
+    ON CONFLICT(key) DO UPDATE SET
+        value = excluded.value,
+        updated_at = excluded.updated_at
+`);
+
+const getSettingStmt = db.prepare('SELECT value FROM system_settings WHERE key = ?');
+
+export const systemRepo = {
+    getSetting: (key: string): string | null => {
+        const result = getSettingStmt.get(key) as { value: string } | undefined;
+        return result ? result.value : null;
+    },
+    setSetting: (key: string, value: string) => {
+        return upsertSettingStmt.run(key, value, new Date().toISOString());
+    },
+    getAllSettings: (): Record<string, string> => {
+        const rows = db.prepare('SELECT key, value FROM system_settings').all() as { key: string, value: string }[];
+        return rows.reduce((acc, row) => ({ ...acc, [row.key]: row.value }), {});
     }
 };

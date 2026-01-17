@@ -3,7 +3,7 @@ import { Queue, Worker } from 'bullmq';
 import IORedis from 'ioredis';
 import { AIFactory } from '../ai/AIFactory';
 import { EmbeddingService } from '../ai/EmbeddingService';
-import { metadataRepo } from '../../db';
+import { metadataRepo, systemRepo } from '../../db';
 import { config } from '../../config';
 
 // --- Redis & Queue Configuration ---
@@ -221,11 +221,20 @@ export const startWorker = () => {
         }
     }, {
         connection,
-        concurrency: 1, // Sequential
+        concurrency: parseInt(systemRepo.getSetting('queue_concurrency') || String(config.queue.concurrency), 10), // Configurable Concurrency
         limiter: {
-            max: 4, // 2 Jobs × 2 Calls = 8 RPM (< 15 RPM 免费层限制)
+            max: parseInt(systemRepo.getSetting('queue_rate_limit_max') || String(config.queue.rateLimitMax), 10), // Configurable Rate Limit
             duration: 60000 // 1 Minute
-        }
+        },
+        // Stale Job 检测配置 (防止僵尸任务)
+        lockDuration: 120000,      // 锁定时间 2 分钟（AI 调用可能较慢）
+        stalledInterval: 60000,    // 每 60 秒检查一次僵尸任务
+        maxStalledCount: 2,        // 超过 2 次 stalled 才标记失败
+    });
+
+    // Stalled 事件监听
+    worker.on('stalled', (jobId) => {
+        console.warn(`[Worker] ⚠️ Job ${jobId} stalled - will be automatically retried.`);
     });
 
     worker.on('failed', (job, err) => {
