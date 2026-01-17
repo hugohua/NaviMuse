@@ -1,5 +1,3 @@
-process.env.AI_PROVIDER = 'gemini'; // Force Gemini for this test
-process.env.GEMINI_MODEL = 'gemini-3-flash-preview'; // Force User Requested Model
 import { addToQueue, startWorker, metadataQueue } from '../src/services/queue/metadataQueue';
 import { metadataRepo, db } from '../src/db';
 

@@ -205,32 +205,59 @@ export function QueuePanel() {
                     <div className="queue-card-header">
                         <FileJson className="w-5 h-5" />
                         <span>仅元数据 (Metadata)</span>
+                        <span className={`queue-status-badge ${status?.metadataOnly?.isPaused ? 'paused' : 'running'}`}>
+                            {status?.metadataOnly?.isPaused ? '已暂停' : status?.metadataOnly?.isWorkerRunning ? '运行中' : '待机'}
+                        </span>
                     </div>
                     <div className="queue-stats">
                         <div className="queue-stat">
-                            <span className="queue-stat-value">{status?.metadataOnly?.waiting || 0}</span>
-                            <span className="queue-stat-label">等待</span>
+                            <span className="queue-stat-value">{status?.metadataOnly?.pendingSongs?.toLocaleString() || 0}</span>
+                            <span className="queue-stat-label">待处理</span>
                         </div>
                         <div className="queue-stat">
-                            <span className="queue-stat-value">{status?.metadataOnly?.active || 0}</span>
-                            <span className="queue-stat-label">运行</span>
+                            <span className="queue-stat-value">{status?.metadataOnly?.waitingJobs || 0}</span>
+                            <span className="queue-stat-label">等待中</span>
                         </div>
                         <div className="queue-stat">
-                            <span className="queue-stat-value">{status?.metadataOnly?.completed || 0}</span>
-                            <span className="queue-stat-label">完成</span>
+                            <span className="queue-stat-value">{status?.metadataOnly?.activeJobs || 0}</span>
+                            <span className="queue-stat-label">运行中</span>
                         </div>
                         <div className="queue-stat">
-                            <span className="queue-stat-value">{status?.metadataOnly?.failed || 0}</span>
+                            <span className="queue-stat-value">{status?.metadataOnly?.failedJobs || 0}</span>
                             <span className="queue-stat-label">失败</span>
                         </div>
                     </div>
                     <div className="queue-actions">
                         <Button
                             size="sm"
-                            onClick={() => handleAction('metaOnly', () => api.startMetadataOnlyQueue(100))}
+                            onClick={() => handleAction('metaOnlyStart', () => api.startMetadataOnlyQueue(100))}
                             disabled={!!actionLoading}
                         >
-                            <Play className="w-4 h-4" /> 开始 (100)
+                            <Play className="w-4 h-4" /> 开始
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleAction('metaOnlyPause', api.pauseMetadataOnlyQueue)}
+                            disabled={!!actionLoading}
+                        >
+                            <Pause className="w-4 h-4" /> 暂停
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleAction('metaOnlyResume', api.resumeMetadataOnlyQueue)}
+                            disabled={!!actionLoading}
+                        >
+                            <RefreshCw className="w-4 h-4" /> 恢复
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleAction('metaOnlyStop', api.stopMetadataOnlyQueue)}
+                            disabled={!!actionLoading}
+                        >
+                            <Square className="w-4 h-4" /> 停止
                         </Button>
                     </div>
                 </div>
@@ -240,32 +267,59 @@ export function QueuePanel() {
                     <div className="queue-card-header">
                         <Database className="w-5 h-5" />
                         <span>向量处理 (Vector)</span>
+                        <span className={`queue-status-badge ${status?.embeddingOnly?.isPaused ? 'paused' : 'running'}`}>
+                            {status?.embeddingOnly?.isPaused ? '已暂停' : status?.embeddingOnly?.isWorkerRunning ? '运行中' : '待机'}
+                        </span>
                     </div>
                     <div className="queue-stats">
                         <div className="queue-stat">
-                            <span className="queue-stat-value">{status?.embeddingOnly?.waiting || 0}</span>
-                            <span className="queue-stat-label">等待</span>
+                            <span className="queue-stat-value">{status?.embeddingOnly?.pendingSongs?.toLocaleString() || 0}</span>
+                            <span className="queue-stat-label">待处理</span>
                         </div>
                         <div className="queue-stat">
-                            <span className="queue-stat-value">{status?.embeddingOnly?.active || 0}</span>
-                            <span className="queue-stat-label">运行</span>
+                            <span className="queue-stat-value">{status?.embeddingOnly?.waitingJobs || 0}</span>
+                            <span className="queue-stat-label">等待中</span>
                         </div>
                         <div className="queue-stat">
-                            <span className="queue-stat-value">{status?.embeddingOnly?.completed || 0}</span>
-                            <span className="queue-stat-label">完成</span>
+                            <span className="queue-stat-value">{status?.embeddingOnly?.activeJobs || 0}</span>
+                            <span className="queue-stat-label">运行中</span>
                         </div>
                         <div className="queue-stat">
-                            <span className="queue-stat-value">{status?.embeddingOnly?.failed || 0}</span>
+                            <span className="queue-stat-value">{status?.embeddingOnly?.failedJobs || 0}</span>
                             <span className="queue-stat-label">失败</span>
                         </div>
                     </div>
                     <div className="queue-actions">
                         <Button
                             size="sm"
-                            onClick={() => handleAction('embedOnly', () => api.startEmbeddingOnlyQueue(200))}
+                            onClick={() => handleAction('embedOnlyStart', () => api.startEmbeddingOnlyQueue(200))}
                             disabled={!!actionLoading}
                         >
-                            <Play className="w-4 h-4" /> 开始 (200)
+                            <Play className="w-4 h-4" /> 开始
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleAction('embedOnlyPause', api.pauseEmbeddingOnlyQueue)}
+                            disabled={!!actionLoading}
+                        >
+                            <Pause className="w-4 h-4" /> 暂停
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleAction('embedOnlyResume', api.resumeEmbeddingOnlyQueue)}
+                            disabled={!!actionLoading}
+                        >
+                            <RefreshCw className="w-4 h-4" /> 恢复
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleAction('embedOnlyStop', api.stopEmbeddingOnlyQueue)}
+                            disabled={!!actionLoading}
+                        >
+                            <Square className="w-4 h-4" /> 停止
                         </Button>
                     </div>
                 </div>

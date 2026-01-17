@@ -39,9 +39,16 @@ router.post('/queue/pause', QueueController.pause);
 router.post('/queue/resume', QueueController.resume);
 router.post('/queue/stop', QueueController.stop);
 router.get('/queue/status', QueueController.status);
-// 分离队列
+// 分离队列 - 元数据
 router.post('/queue/metadata-only/start', QueueController.startMetadataOnly);
+router.post('/queue/metadata-only/pause', QueueController.pauseMetadataOnly);
+router.post('/queue/metadata-only/resume', QueueController.resumeMetadataOnly);
+router.post('/queue/metadata-only/stop', QueueController.stopMetadataOnly);
+// 分离队列 - 向量
 router.post('/queue/embedding-only/start', QueueController.startEmbeddingOnly);
+router.post('/queue/embedding-only/pause', QueueController.pauseEmbeddingOnly);
+router.post('/queue/embedding-only/resume', QueueController.resumeEmbeddingOnly);
+router.post('/queue/embedding-only/stop', QueueController.stopEmbeddingOnly);
 
 // --- Admin / Inspection ---
 import { AdminController } from '../controllers/admin.controller';

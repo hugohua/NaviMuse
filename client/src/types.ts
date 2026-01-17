@@ -109,16 +109,24 @@ export interface QueueStatus {
         pipelineState: 'idle' | 'syncing' | 'enqueuing';
     };
     metadataOnly: {
-        waiting: number;
-        active: number;
-        completed: number;
-        failed: number;
+        isPaused: boolean;
+        isWorkerRunning: boolean;
+        activeJobs: number;
+        waitingJobs: number;
+        completedJobs: number;
+        failedJobs: number;
+        delayedJobs: number;
+        pendingSongs: number;
     };
     embeddingOnly: {
-        waiting: number;
-        active: number;
-        completed: number;
-        failed: number;
+        isPaused: boolean;
+        isWorkerRunning: boolean;
+        activeJobs: number;
+        waitingJobs: number;
+        completedJobs: number;
+        failedJobs: number;
+        delayedJobs: number;
+        pendingSongs: number;
     };
 }
 

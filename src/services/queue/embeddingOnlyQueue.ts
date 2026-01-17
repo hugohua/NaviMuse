@@ -28,6 +28,9 @@ interface EmbeddingOnlyJobData {
     }[];
 }
 
+// --- Worker 实例管理 ---
+let workerInstance: ReturnType<typeof startEmbeddingOnlyWorker> | null = null;
+
 export const startEmbeddingOnlyWorker = () => {
     const worker = new Worker<EmbeddingOnlyJobData>('embedding-only', async (job) => {
         const { songs, correlationId } = job.data;
@@ -79,6 +82,82 @@ export const startEmbeddingOnlyWorker = () => {
 
     console.log('[EmbeddingOnly] Worker Started.');
     return worker;
+};
+
+/**
+ * 确保 Worker 已启动（按需启动）
+ */
+export const ensureEmbeddingOnlyWorkerStarted = () => {
+    if (!workerInstance) {
+        workerInstance = startEmbeddingOnlyWorker();
+    }
+    return workerInstance;
+};
+
+export const getEmbeddingOnlyWorkerInstance = () => workerInstance;
+export const setEmbeddingOnlyWorkerInstance = (w: typeof workerInstance) => { workerInstance = w; };
+
+// --- 队列控制方法 ---
+
+export const pauseEmbeddingOnlyQueue = async (): Promise<void> => {
+    await embeddingOnlyQueue.pause();
+    console.log('[EmbeddingOnly] Queue paused.');
+};
+
+export const resumeEmbeddingOnlyQueue = async (): Promise<void> => {
+    await embeddingOnlyQueue.resume();
+    console.log('[EmbeddingOnly] Queue resumed.');
+};
+
+export const clearEmbeddingOnlyQueue = async (): Promise<{ clearedJobs: number }> => {
+    const counts = await embeddingOnlyQueue.getJobCounts();
+    const totalBefore = counts.waiting + counts.delayed + counts.active;
+
+    await embeddingOnlyQueue.drain();
+    await embeddingOnlyQueue.clean(0, 1000, 'delayed');
+    await embeddingOnlyQueue.clean(0, 1000, 'failed');
+
+    console.log(`[EmbeddingOnly] Cleared ${totalBefore} jobs.`);
+    return { clearedJobs: totalBefore };
+};
+
+export const stopEmbeddingOnlyQueue = async (): Promise<{ clearedJobs: number }> => {
+    await pauseEmbeddingOnlyQueue();
+    const result = await clearEmbeddingOnlyQueue();
+
+    if (workerInstance) {
+        await workerInstance.close();
+        workerInstance = null;
+    }
+
+    return result;
+};
+
+export interface EmbeddingOnlyQueueStatus {
+    isPaused: boolean;
+    isWorkerRunning: boolean;
+    activeJobs: number;
+    waitingJobs: number;
+    completedJobs: number;
+    failedJobs: number;
+    delayedJobs: number;
+}
+
+export const getEmbeddingOnlyQueueStatus = async (): Promise<EmbeddingOnlyQueueStatus> => {
+    const [counts, isPaused] = await Promise.all([
+        embeddingOnlyQueue.getJobCounts(),
+        embeddingOnlyQueue.isPaused()
+    ]);
+
+    return {
+        isPaused,
+        isWorkerRunning: workerInstance !== null,
+        activeJobs: counts.active,
+        waitingJobs: counts.waiting,
+        completedJobs: counts.completed || 0,
+        failedJobs: counts.failed,
+        delayedJobs: counts.delayed
+    };
 };
 
 export const addToEmbeddingOnlyQueue = async (songs: EmbeddingOnlyJobData['songs']) => {

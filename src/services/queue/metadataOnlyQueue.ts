@@ -23,6 +23,9 @@ interface MetadataOnlyJobData {
     songs: { navidrome_id: string; title: string; artist: string }[];
 }
 
+// --- Worker 实例管理 ---
+let workerInstance: ReturnType<typeof startMetadataOnlyWorker> | null = null;
+
 export const startMetadataOnlyWorker = () => {
     const worker = new Worker<MetadataOnlyJobData>('metadata-only', async (job) => {
         const { songs, correlationId } = job.data;
@@ -108,6 +111,82 @@ export const startMetadataOnlyWorker = () => {
 
     console.log('[MetadataOnly] Worker Started.');
     return worker;
+};
+
+/**
+ * 确保 Worker 已启动（按需启动）
+ */
+export const ensureMetadataOnlyWorkerStarted = () => {
+    if (!workerInstance) {
+        workerInstance = startMetadataOnlyWorker();
+    }
+    return workerInstance;
+};
+
+export const getMetadataOnlyWorkerInstance = () => workerInstance;
+export const setMetadataOnlyWorkerInstance = (w: typeof workerInstance) => { workerInstance = w; };
+
+// --- 队列控制方法 ---
+
+export const pauseMetadataOnlyQueue = async (): Promise<void> => {
+    await metadataOnlyQueue.pause();
+    console.log('[MetadataOnly] Queue paused.');
+};
+
+export const resumeMetadataOnlyQueue = async (): Promise<void> => {
+    await metadataOnlyQueue.resume();
+    console.log('[MetadataOnly] Queue resumed.');
+};
+
+export const clearMetadataOnlyQueue = async (): Promise<{ clearedJobs: number }> => {
+    const counts = await metadataOnlyQueue.getJobCounts();
+    const totalBefore = counts.waiting + counts.delayed + counts.active;
+
+    await metadataOnlyQueue.drain();
+    await metadataOnlyQueue.clean(0, 1000, 'delayed');
+    await metadataOnlyQueue.clean(0, 1000, 'failed');
+
+    console.log(`[MetadataOnly] Cleared ${totalBefore} jobs.`);
+    return { clearedJobs: totalBefore };
+};
+
+export const stopMetadataOnlyQueue = async (): Promise<{ clearedJobs: number }> => {
+    await pauseMetadataOnlyQueue();
+    const result = await clearMetadataOnlyQueue();
+
+    if (workerInstance) {
+        await workerInstance.close();
+        workerInstance = null;
+    }
+
+    return result;
+};
+
+export interface MetadataOnlyQueueStatus {
+    isPaused: boolean;
+    isWorkerRunning: boolean;
+    activeJobs: number;
+    waitingJobs: number;
+    completedJobs: number;
+    failedJobs: number;
+    delayedJobs: number;
+}
+
+export const getMetadataOnlyQueueStatus = async (): Promise<MetadataOnlyQueueStatus> => {
+    const [counts, isPaused] = await Promise.all([
+        metadataOnlyQueue.getJobCounts(),
+        metadataOnlyQueue.isPaused()
+    ]);
+
+    return {
+        isPaused,
+        isWorkerRunning: workerInstance !== null,
+        activeJobs: counts.active,
+        waitingJobs: counts.waiting,
+        completedJobs: counts.completed || 0,
+        failedJobs: counts.failed,
+        delayedJobs: counts.delayed
+    };
 };
 
 export const addToMetadataOnlyQueue = async (songs: MetadataOnlyJobData['songs']) => {

@@ -230,12 +230,42 @@ export const api = {
         return res.json();
     },
 
+    pauseMetadataOnlyQueue: async (): Promise<QueueActionResult> => {
+        const res = await fetch('/api/queue/metadata-only/pause', { method: 'POST' });
+        return res.json();
+    },
+
+    resumeMetadataOnlyQueue: async (): Promise<QueueActionResult> => {
+        const res = await fetch('/api/queue/metadata-only/resume', { method: 'POST' });
+        return res.json();
+    },
+
+    stopMetadataOnlyQueue: async (): Promise<QueueActionResult> => {
+        const res = await fetch('/api/queue/metadata-only/stop', { method: 'POST' });
+        return res.json();
+    },
+
     /**
      * 启动仅向量生成任务
      */
     startEmbeddingOnlyQueue: async (limit?: number): Promise<QueueActionResult> => {
         const url = limit ? `/api/queue/embedding-only/start?limit=${limit}` : '/api/queue/embedding-only/start';
         const res = await fetch(url, { method: 'POST' });
+        return res.json();
+    },
+
+    pauseEmbeddingOnlyQueue: async (): Promise<QueueActionResult> => {
+        const res = await fetch('/api/queue/embedding-only/pause', { method: 'POST' });
+        return res.json();
+    },
+
+    resumeEmbeddingOnlyQueue: async (): Promise<QueueActionResult> => {
+        const res = await fetch('/api/queue/embedding-only/resume', { method: 'POST' });
+        return res.json();
+    },
+
+    stopEmbeddingOnlyQueue: async (): Promise<QueueActionResult> => {
+        const res = await fetch('/api/queue/embedding-only/stop', { method: 'POST' });
         return res.json();
     }
 };

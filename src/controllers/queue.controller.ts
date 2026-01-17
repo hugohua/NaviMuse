@@ -5,9 +5,23 @@
 
 import { Request, Response } from 'express';
 import { queueManagerService, StartOptions } from '../services/queue/QueueManagerService';
-import { metadataRepo } from '../db';
-import { addToMetadataOnlyQueue, metadataOnlyQueue } from '../services/queue/metadataOnlyQueue';
-import { addToEmbeddingOnlyQueue, embeddingOnlyQueue } from '../services/queue/embeddingOnlyQueue';
+import { metadataRepo, initDB } from '../db';
+import {
+    addToMetadataOnlyQueue,
+    ensureMetadataOnlyWorkerStarted,
+    pauseMetadataOnlyQueue,
+    resumeMetadataOnlyQueue,
+    stopMetadataOnlyQueue,
+    getMetadataOnlyQueueStatus
+} from '../services/queue/metadataOnlyQueue';
+import {
+    addToEmbeddingOnlyQueue,
+    ensureEmbeddingOnlyWorkerStarted,
+    pauseEmbeddingOnlyQueue,
+    resumeEmbeddingOnlyQueue,
+    stopEmbeddingOnlyQueue,
+    getEmbeddingOnlyQueueStatus
+} from '../services/queue/embeddingOnlyQueue';
 
 export const QueueController = {
     /**
@@ -86,27 +100,28 @@ export const QueueController = {
 
     /**
      * GET /api/queue/status
-     * 获取所有队列状态
+     * 获取所有队列状态（包含待处理数据统计）
      */
     status: async (_req: Request, res: Response) => {
         try {
             const mainStatus = await queueManagerService.getStatus();
-            const metadataOnlyCounts = await metadataOnlyQueue.getJobCounts();
-            const embeddingOnlyCounts = await embeddingOnlyQueue.getJobCounts();
+            const metadataOnlyStatus = await getMetadataOnlyQueueStatus();
+            const embeddingOnlyStatus = await getEmbeddingOnlyQueueStatus();
+
+            // 获取数据库中的待处理统计
+            initDB();
+            const pendingMetadataSongs = metadataRepo.getPendingSongs(100000).length;
+            const pendingEmbeddingSongs = metadataRepo.getPendingEmbeddings(100000).length;
 
             res.json({
                 main: mainStatus,
                 metadataOnly: {
-                    waiting: metadataOnlyCounts.waiting,
-                    active: metadataOnlyCounts.active,
-                    completed: metadataOnlyCounts.completed || 0,
-                    failed: metadataOnlyCounts.failed
+                    ...metadataOnlyStatus,
+                    pendingSongs: pendingMetadataSongs
                 },
                 embeddingOnly: {
-                    waiting: embeddingOnlyCounts.waiting,
-                    active: embeddingOnlyCounts.active,
-                    completed: embeddingOnlyCounts.completed || 0,
-                    failed: embeddingOnlyCounts.failed
+                    ...embeddingOnlyStatus,
+                    pendingSongs: pendingEmbeddingSongs
                 }
             });
         } catch (error: any) {
@@ -126,11 +141,15 @@ export const QueueController = {
     startMetadataOnly: async (req: Request, res: Response) => {
         try {
             const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 100;
+            initDB();
             const songs = metadataRepo.getPendingSongs(limit);
 
             if (songs.length === 0) {
                 return res.json({ success: true, message: '没有待处理的歌曲', jobsCreated: 0 });
             }
+
+            // 确保 Worker 已启动
+            ensureMetadataOnlyWorkerStarted();
 
             // 分批添加到队列 (每批 10 首)
             const batchSize = 10;
@@ -152,6 +171,43 @@ export const QueueController = {
         }
     },
 
+    /**
+     * POST /api/queue/metadata-only/pause
+     */
+    pauseMetadataOnly: async (_req: Request, res: Response) => {
+        try {
+            await pauseMetadataOnlyQueue();
+            res.json({ success: true, message: '元数据队列已暂停' });
+        } catch (error: any) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
+    /**
+     * POST /api/queue/metadata-only/resume
+     */
+    resumeMetadataOnly: async (_req: Request, res: Response) => {
+        try {
+            ensureMetadataOnlyWorkerStarted();
+            await resumeMetadataOnlyQueue();
+            res.json({ success: true, message: '元数据队列已恢复' });
+        } catch (error: any) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
+    /**
+     * POST /api/queue/metadata-only/stop
+     */
+    stopMetadataOnly: async (_req: Request, res: Response) => {
+        try {
+            const result = await stopMetadataOnlyQueue();
+            res.json({ success: true, message: `已停止元数据队列并清除 ${result.clearedJobs} 个任务`, clearedJobs: result.clearedJobs });
+        } catch (error: any) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
     // ========== 仅向量队列 ==========
 
     /**
@@ -161,11 +217,15 @@ export const QueueController = {
     startEmbeddingOnly: async (req: Request, res: Response) => {
         try {
             const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 100;
+            initDB();
             const songs = metadataRepo.getPendingEmbeddings(limit);
 
             if (songs.length === 0) {
                 return res.json({ success: true, message: '没有待生成向量的歌曲', jobsCreated: 0 });
             }
+
+            // 确保 Worker 已启动
+            ensureEmbeddingOnlyWorkerStarted();
 
             // 分批添加到队列 (每批 20 首，向量生成更快)
             const batchSize = 20;
@@ -185,6 +245,42 @@ export const QueueController = {
         } catch (error: any) {
             res.status(500).json({ success: false, message: error.message });
         }
+    },
+
+    /**
+     * POST /api/queue/embedding-only/pause
+     */
+    pauseEmbeddingOnly: async (_req: Request, res: Response) => {
+        try {
+            await pauseEmbeddingOnlyQueue();
+            res.json({ success: true, message: '向量队列已暂停' });
+        } catch (error: any) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
+    /**
+     * POST /api/queue/embedding-only/resume
+     */
+    resumeEmbeddingOnly: async (_req: Request, res: Response) => {
+        try {
+            ensureEmbeddingOnlyWorkerStarted();
+            await resumeEmbeddingOnlyQueue();
+            res.json({ success: true, message: '向量队列已恢复' });
+        } catch (error: any) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
+    /**
+     * POST /api/queue/embedding-only/stop
+     */
+    stopEmbeddingOnly: async (_req: Request, res: Response) => {
+        try {
+            const result = await stopEmbeddingOnlyQueue();
+            res.json({ success: true, message: `已停止向量队列并清除 ${result.clearedJobs} 个任务`, clearedJobs: result.clearedJobs });
+        } catch (error: any) {
+            res.status(500).json({ success: false, message: error.message });
+        }
     }
 };
-
