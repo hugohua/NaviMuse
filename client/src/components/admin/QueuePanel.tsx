@@ -417,7 +417,7 @@ export function QueuePanel({ onClose }: QueuePanelProps) {
 
                     {/* Bull Dashboard 链接 */}
                     <div className="dashboard-link">
-                        <a href="http://localhost:5173/admin/queues" target="_blank" rel="noopener noreferrer">
+                        <a href="/admin/queues" target="_blank" rel="noopener noreferrer">
                             <ExternalLink className="w-4 h-4" />
                             <span>打开 Bull Dashboard 查看详细信息</span>
                         </a>
