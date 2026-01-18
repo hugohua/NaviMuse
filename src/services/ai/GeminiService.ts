@@ -48,7 +48,7 @@ export class GeminiService implements IAIService {
         }
 
         this.openRouter = new OpenRouter({ apiKey });
-        this.defaultModel = process.env.GEMINI_MODEL || "google/gemini-2.0-flash-exp:free";
+        this.defaultModel = process.env.GEMINI_MODEL || "google/gemini-3-pro-preview";
         console.log(`[GeminiService] Initialized. Default Model: ${this.defaultModel}`);
     }
 
