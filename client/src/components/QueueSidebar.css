@@ -58,6 +58,7 @@
 .queue-item {
     display: flex;
     align-items: center;
+    width: 300px;
     gap: 0.75rem;
     padding: 0.75rem;
     border-radius: var(--radius-xl);
