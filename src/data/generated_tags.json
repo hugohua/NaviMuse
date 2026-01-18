@@ -1,0 +1,63 @@
+[
+  {
+    "title": "声学特征 (Acoustic)",
+    "attributes": {
+      "高频明亮 (High)": "Spectrum: High, 6109 songs.",
+      "中频饱满 (Mid)": "Spectrum: Mid, 11942 songs.",
+      "低频深沉 (Low)": "Spectrum: Low, 5685 songs.",
+      "全频均衡 (Full)": "Spectrum: Full, 6898 songs.",
+      "干燥紧致 (Dry)": "Spatial: Dry, 6898 songs.",
+      "湿润混响 (Wet)": "Spatial: Wet, 8095 songs.",
+      "宏大空间 (Huge)": "Spatial: Huge, 8233 songs.",
+      "私密贴近 (Intimate)": "Spatial: Intimate, 7404 songs.",
+      "静谧环境 (Static)": "Tempo Vibe: Static, 8319 songs.",
+      "漂浮律动 (Drifting)": "Tempo Vibe: Drifting, 10591 songs.",
+      "推进节奏 (Driving)": "Tempo Vibe: Driving, 7860 songs.",
+      "爆裂冲击 (Explosive)": "Tempo Vibe: Explosive, 3942 songs.",
+      "原声质感 (Organic)": "Timbre Texture: Organic, 15724 songs.",
+      "电子合成 (Electronic)": "Timbre Texture: Electronic, 7271 songs.",
+      "颗粒复古 (Grainy)": "Timbre Texture: Grainy, 4366 songs.",
+      "金属冷峻 (Metallic)": "Timbre Texture: Metallic, 3345 songs."
+    }
+  },
+  {
+    "title": "能量强度 (Energy)",
+    "attributes": {
+      "低能量 ☁️ (5571)": "Energy Level: Low (1-3), Background, Relaxed, Ambient.",
+      "中能量 ⚡ (14853)": "Energy Level: Mid (4-6), Balanced, Engaging, Standard Pop/Rock.",
+      "高能量 🔥 (10289)": "Energy Level: High (7-10), Intense, Party, Workout, Aggressive."
+    }
+  },
+  {
+    "title": "情绪氛围 (Mood)",
+    "attributes": {
+      "怀旧 / 眷恋 (2061)": "Vintage atmosphere, warm analog texture, slow to mid-tempo, narrative vocal style, evoking memories of the past, classic mandopop ballad style.",
+      "感伤 / 孤寂 (3007)": "Minor key, slow tempo, sparse instrumentation, emotional and breathy vocals, piano or acoustic guitar accompaniment, conveying solitude and quiet sadness.",
+      "浪漫 / 温情 (1690)": "Major key, smooth and lush arrangement, soft strings or saxophone, duet or crooning vocals, creating a sweet and loving atmosphere.",
+      "欢快 / 俏皮 (2122)": "Upbeat tempo, rhythmic and bouncy, bright instrumentation, brass or synthesizer hits, catchy melody, evoking happiness and youthful energy.",
+      "豪迈 / 激昂 (2625)": "Grand orchestral backing, marching rhythm, strong and dynamic vocals, crescendo, dramatic brass section, conveying strength, courage, and determination.",
+      "宁静 / 空灵 (1964)": "Slow and spacious, ambient textures, reverb-heavy vocals, soft flute or pad sounds, minimal percussion, creating a zen-like and dreamlike state.",
+      "悲怆 / 剧烈 (1713)": "High tension, fast or irregular rhythm, dissonant harmonies, intense vocal delivery, heavy instrumentation, conveying crisis, heartbreak, or emotional turmoil."
+    }
+  },
+  {
+    "title": "场景 (Scene)",
+    "attributes": {
+      "深夜独白 / 都市孤寂 (347)": "营造都市深夜的静谧与孤独感，音色偏冷，带有雨声或空房间的混响，旋律呈现出独处时的内省与疏离。",
+      "情感宣泄 / 痛彻心扉 (168)": "极具张力的情感爆发，人声表现撕心裂肺或压抑后的崩溃，编曲动态大，强调戏剧性的冲突与哀伤。",
+      "柔情倾诉 / 甜蜜时刻 (225)": "近距离的贴耳人声，温暖柔和的声学氛围，旋律甜美细腻，传递出恋爱中的羞涩、承诺与亲密感。",
+      "岁月回首 / 怀旧记忆 (127)": "泛黄的岁月质感，节奏舒缓，带有叙事性的口吻，仿佛在翻阅旧相册，唤起对童年或往事的深情追忆。",
+      "离别远行 / 漂泊羁旅 (82)": "充满流动感与空间感，融入火车、风声等环境音效，旋律苍凉或坚定，描绘游子漂泊、车站离别或公路旅途的画面。",
+      "庆典仪式 / 喜庆欢腾 (108)": "宏大的配器与热闹的打击乐，情绪高昂喜庆，适合节日、婚礼或大型集会场景，充满团圆与欢庆的色彩。",
+      "武侠豪情 / 历史沧桑 (65)": "运用中国传统乐器（如鼓、筝、笛），气势磅礴或苍凉辽阔，营造江湖恩怨、家国情怀或历史史诗的厚重氛围。",
+      "舞台现场 / 发烧试音 (62)": "强调临场感与高保真音质，无论是舞厅的律动还是试音室的纯净，突出乐器分离度与空间声场，适合发烧友鉴赏。"
+    }
+  },
+  {
+    "title": "类型 (Type)",
+    "attributes": {
+      "纯音乐 (227)": "Type: Instrumental, no vocals.",
+      "有人声 (31874)": "Type: Vocal, with singing."
+    }
+  }
+]

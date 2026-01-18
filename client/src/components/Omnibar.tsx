@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Button } from './ui/button';
 import { ModeSwitcher } from './ModeSwitcher';
 import { ArrowRight, Loader2 } from 'lucide-react';
@@ -10,10 +10,11 @@ interface OmnibarProps {
     onModeChange: (mode: DiscoveryMode) => void;
     onGenerate: (prompt: string) => void;
     loading: boolean;
+    value: string;
+    onChange: (value: string) => void;
 }
 
-export const Omnibar: React.FC<OmnibarProps> = React.memo(({ mode, onModeChange, onGenerate, loading }) => {
-    const [prompt, setPrompt] = useState('');
+export const Omnibar: React.FC<OmnibarProps> = React.memo(({ mode, onModeChange, onGenerate, loading, value: prompt, onChange }) => {
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter' && prompt.trim()) {
@@ -42,7 +43,7 @@ export const Omnibar: React.FC<OmnibarProps> = React.memo(({ mode, onModeChange,
                         className="omnibar-input"
                         placeholder="描述当下的心情..."
                         value={prompt}
-                        onChange={(e) => setPrompt(e.target.value)}
+                        onChange={(e) => onChange(e.target.value)}
                         onKeyDown={handleKeyDown}
                     />
                     <Button

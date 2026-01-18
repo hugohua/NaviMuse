@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
 import { IAIService } from './IAIService';
-import { METADATA_SYSTEM_PROMPT, parseAIResponse, buildCuratorSystemPrompt } from './systemPrompt';
+import { METADATA_SYSTEM_PROMPT, parseAIResponse, buildCuratorSystemPrompt, USER_PROFILE_SYSTEM_PROMPT } from './systemPrompt';
 import { repairJson, writeErrorLog, cleanMarkdown, logAIRequest, logAIResponse } from './aiUtils';
 import { config } from '../../config';
 import { systemRepo } from '../../db';
@@ -161,7 +161,57 @@ Filter and rank the best matches for this request.
     }
 
     async analyzeUserProfile(songs: any[]): Promise<any> {
-        throw new Error("Not implemented for QwenService");
+        const songsCSV = songs.map(s => {
+            let dateStr = 'Unknown';
+            const dateSource = s.starredAt || s.created;
+            if (dateSource) {
+                try { dateStr = new Date(dateSource).toISOString().split('T')[0]; } catch (e) { }
+            }
+            if (!s.starredAt && (s.playCount > 20)) {
+                dateStr += " (HighPlays)";
+            }
+            return `Title:${s.title}|Artist:${s.artist}|Genre:${s.genre}|Plays:${s.playCount}|Date:${dateStr}`;
+        }).join('\n');
+
+        const userPrompt = `
+### User Listening Session
+**Context**: Recent Listening Behavior Analysis
+**User Notes**: User typically listens late at night (23:00+).
+**Reference Date**: ${new Date().toISOString().split('T')[0]}
+
+**Time Decay & Weighting Instructions**:
+1. **Recency Bias**: 请赋予'最近一周'(Date close to Reference Date) 的播放行为 2.0 的权重。
+2. **Enduring Favorites**: 如果歌曲标记为 "(HighPlays)" 且日期较久，视为核心品味锚点，权重 1.5，不随时间衰减。
+3. **Ghost Data**: 对于 '半年前' 且低播放量的行为，权重降为 0.5。
+我们需要一个**进化的**音乐 DNA，而不是历史堆砌。
+
+Candidate Songs:
+${songsCSV}
+
+### Prompt Objective:
+请基于上述数据，为我生成一份具备高检索价值的 Technical Profile 以及一份极具共鸣感的 Display Card。
+`;
+        const currentModel = this.getModelName();
+        console.log(`[QwenService] Generating User Profile with ${currentModel} (Songs: ${songs.length})`);
+
+        try {
+            const response = await this.client.chat.completions.create({
+                model: currentModel,
+                messages: [
+                    { role: 'system', content: USER_PROFILE_SYSTEM_PROMPT },
+                    { role: 'user', content: userPrompt }
+                ],
+                temperature: 0.8
+            });
+
+            const text = response.choices[0]?.message?.content || "";
+            const cleaned = cleanMarkdown(text);
+            const JSON5 = (await import('json5')).default;
+            return JSON5.parse(cleaned);
+        } catch (e) {
+            console.error("[QwenService] User Profile Generation Failed:", e);
+            throw new Error("AI User Profile Generation Failed");
+        }
     }
 
     getLastPrompts() {

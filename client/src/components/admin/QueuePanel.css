@@ -239,13 +239,13 @@
 }
 
 /* 操作按钮 */
-.action-buttons {
+.queue-action-buttons {
     display: flex;
     gap: 0.75rem;
     margin-bottom: 1.5rem;
 }
 
-.action-btn {
+.queue-action-btn {
     flex: 1;
     display: flex;
     align-items: center;
@@ -255,22 +255,22 @@
     font-weight: 500;
 }
 
-.action-btn svg {
+.queue-action-btn svg {
     width: 18px;
     height: 18px;
 }
 
-.action-btn.start {
+.queue-action-btn.start {
     background: linear-gradient(135deg, #6366f1, #8b5cf6);
     color: white;
     border: none;
 }
 
-.action-btn.start:hover:not(:disabled) {
+.queue-action-btn.start:hover:not(:disabled) {
     background: linear-gradient(135deg, #4f46e5, #7c3aed);
 }
 
-.action-btn.start:disabled {
+.queue-action-btn.start:disabled {
     opacity: 0.5;
     cursor: not-allowed;
 }

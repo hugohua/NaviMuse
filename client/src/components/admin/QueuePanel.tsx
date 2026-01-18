@@ -156,9 +156,9 @@ export function QueuePanel({ onClose }: QueuePanelProps) {
             </div>
 
             {/* 操作按钮 */}
-            <div className="action-buttons">
+            <div className="queue-action-buttons">
                 <Button
-                    className="action-btn start"
+                    className="queue-action-btn start"
                     onClick={() => handleStart()}
                     disabled={!!actionLoading || !!hasActiveJobs}
                 >
@@ -173,7 +173,7 @@ export function QueuePanel({ onClose }: QueuePanelProps) {
                 {/* Pause / Resume Toggle */}
                 {mainStatus?.isPaused ? (
                     <Button
-                        className="action-btn"
+                        className="queue-action-btn"
                         variant="outline"
                         onClick={() => handleAction('resume', api.resumeQueue)}
                         disabled={!!actionLoading}
@@ -183,7 +183,7 @@ export function QueuePanel({ onClose }: QueuePanelProps) {
                     </Button>
                 ) : (
                     <Button
-                        className="action-btn"
+                        className="queue-action-btn"
                         variant="outline"
                         onClick={() => handleAction('pause', api.pauseQueue)}
                         disabled={!!actionLoading || !hasActiveJobs}
@@ -194,7 +194,7 @@ export function QueuePanel({ onClose }: QueuePanelProps) {
                 )}
 
                 <Button
-                    className="action-btn stop"
+                    className="queue-action-btn stop"
                     variant="destructive"
                     onClick={() => handleStop()}
                     disabled={!!actionLoading || !hasActiveJobs}
@@ -266,9 +266,9 @@ export function QueuePanel({ onClose }: QueuePanelProps) {
                     </div>
                 </div>
 
-                <div className="action-buttons">
+                <div className="queue-action-buttons">
                     <Button
-                        className="action-btn start"
+                        className="queue-action-btn start"
                         onClick={() => handleAction(`${prefix}Start`, startFn)}
                         disabled={!!actionLoading}
                     >
@@ -279,7 +279,7 @@ export function QueuePanel({ onClose }: QueuePanelProps) {
                     {/* Pause / Resume Toggle */}
                     {queueStatus?.isPaused ? (
                         <Button
-                            className="action-btn"
+                            className="queue-action-btn"
                             variant="outline"
                             onClick={() => handleAction(`${prefix}Resume`, resumeFn)}
                             disabled={!!actionLoading}
@@ -289,7 +289,7 @@ export function QueuePanel({ onClose }: QueuePanelProps) {
                         </Button>
                     ) : (
                         <Button
-                            className="action-btn"
+                            className="queue-action-btn"
                             variant="outline"
                             onClick={() => handleAction(`${prefix}Pause`, pauseFn)}
                             disabled={!!actionLoading || !hasActive}
@@ -300,7 +300,7 @@ export function QueuePanel({ onClose }: QueuePanelProps) {
                     )}
 
                     <Button
-                        className="action-btn stop"
+                        className="queue-action-btn stop"
                         variant="destructive"
                         onClick={() => handleAction(`${prefix}Stop`, stopFn)}
                         disabled={!!actionLoading || !hasActive}

@@ -131,7 +131,6 @@ Class: `.glass-button`
 > Adhere to these libraries to maintain consistency and performance.
 
 ### Core UI Framework
-- **Tailwind CSS (`^3.4`)**: Utility-first CSS framework. Used for 95% of styling.
 - **Radix UI (`@radix-ui/*`)**: Headless UI primitives for complex accessible components (Dialog, Slider, Slot).
 - **Lucide React (`lucide-react`)**: Standard icon set. Use for all UI icons.
 

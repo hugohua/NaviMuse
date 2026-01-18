@@ -211,3 +211,176 @@
 .setting-item {
     margin-bottom: 20px;
 }
+
+/* =========================================
+   Advanced Maintenance Card Styles - Light/Bright Theme
+   ========================================= */
+
+.maintenance-card {
+    position: relative;
+    /* Light Surface: White with subtle tint */
+    background: linear-gradient(145deg, #ffffff 0%, #fcfcfc 100%);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    /* Light gray border */
+    border-radius: var(--radius-xl);
+    margin-top: 2rem;
+    overflow: hidden;
+    /* Soft, diffused shadow for light mode */
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.maintenance-card:hover {
+    border-color: rgba(249, 115, 22, 0.4);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.02);
+    transform: translateY(-2px);
+}
+
+/* Orange Accent Line */
+.maintenance-accent-line {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: linear-gradient(to bottom, #f97316, #fb923c);
+    opacity: 1;
+}
+
+.maintenance-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1.5rem 2rem;
+    border-bottom: 1px solid #f3f4f6;
+    /* Gray-100 */
+    background: linear-gradient(90deg, #fff7ed 0%, transparent 100%);
+    /* Orange-50 tint */
+}
+
+
+
+.maintenance-content {
+    padding: 2rem 2rem 2.5rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 2rem;
+}
+
+.maintenance-info {
+    flex: 1;
+}
+
+.maintenance-label {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #374151;
+    /* Gray-700 */
+    margin-bottom: 0.75rem;
+    /* display: block; */
+}
+
+.maintenance-desc {
+    font-size: 0.875rem;
+    line-height: 1.6;
+    color: #6b7280;
+    /* Gray-500 */
+    max-width: 36rem;
+}
+
+.warning-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1.25rem;
+    padding: 0.5rem 0.875rem;
+    border-radius: 8px;
+    background: #fff7ed;
+    /* Orange-50 */
+    border: 1px solid #ffedd5;
+    /* Orange-100 */
+    color: #c2410c;
+    /* Orange-700 */
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+/* Custom Analyze Button - Light Version */
+.analyze-btn {
+    position: relative;
+    height: 3.25rem;
+    min-width: 170px;
+    padding: 0 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    border-radius: 10px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    /* Gray-200 */
+    color: #4b5563;
+    /* Gray-600 */
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.analyze-btn:hover:not(:disabled) {
+    border-color: #f97316;
+    color: #c2410c;
+    background: #fff7ed;
+    /* Orange-50 */
+    box-shadow: 0 4px 6px -1px rgba(249, 115, 22, 0.1), 0 2px 4px -1px rgba(249, 115, 22, 0.06);
+}
+
+.analyze-btn:active:not(:disabled) {
+    transform: scale(0.98);
+}
+
+.analyze-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background: #f9fafb;
+    border-color: #e5e7eb;
+    color: #9ca3af;
+}
+
+.analyze-btn-bg {
+    display: none;
+    /* Removed slide effect for cleaner light look */
+}
+
+.spin-icon {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+
+
+.spin-icon {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}

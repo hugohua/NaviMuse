@@ -1,10 +1,12 @@
+import generatedTags from './generated_tags.json';
 
 export interface TagCategory {
     title: string;
     attributes: Record<string, string>;
 }
 
-export const tagCategories: TagCategory[] = [
+// 手工策划的场景标签 (保留原有内容)
+const manualTagCategories: TagCategory[] = [
     {
         title: "场景 / 氛围 (Context)",
         attributes: {
@@ -54,4 +56,10 @@ export const tagCategories: TagCategory[] = [
             "劲": "High energy, aggressive heavy bass, club bangers."
         }
     }
+];
+
+// 合并导出: 数据库生成标签 + 手工策划标签
+export const tagCategories: TagCategory[] = [
+    ...(generatedTags as unknown as TagCategory[]),
+    ...manualTagCategories
 ];

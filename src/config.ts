@@ -21,8 +21,8 @@ export const config = {
     },
     ai: {
         apiKey: getEnv('OPENAI_API_KEY'),
-        baseURL: getEnv('OPENAI_BASE_URL') || 'https://dashscope.aliyuncs.com/compatible-mode/v1',
-        model: getEnv('OPENAI_MODEL') || 'qwen3-max',
+        baseURL: getEnv('OPENAI_BASE_URL', false) || 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+        model: getEnv('OPENAI_MODEL', false) || 'qwen-plus',
         modelList: (getEnv('OPENAI_MODEL_LIST', false) || '').split(',').filter(Boolean),
         temperature: parseFloat(process.env.AI_TEMPERATURE || '0.5'),
     },

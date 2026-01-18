@@ -1,4 +1,4 @@
-import { GeminiService } from '../ai/GeminiService';
+import { AIFactory } from '../ai/AIFactory';
 import { Song, CuratorResponse, UserProfile } from '../../types';
 
 /**
@@ -7,10 +7,9 @@ import { Song, CuratorResponse, UserProfile } from '../../types';
  * 原 LLMClient
  */
 export class RecommendationService {
-    private geminiService: GeminiService;
 
     constructor() {
-        this.geminiService = new GeminiService();
+        // No explicit initialization needed as we get service dynamically
     }
 
     /**
@@ -24,15 +23,15 @@ export class RecommendationService {
         userContextSummary: UserProfile,
         candidates: Song[]
     ): Promise<CuratorResponse> {
-        return this.geminiService.curatePlaylist(scenePrompt, candidates, 20, userContextSummary);
+        return AIFactory.getService().curatePlaylist(scenePrompt, candidates, 20, userContextSummary);
     }
     /**
      * 用户画像分析
      * @param songs 用户近期/常听歌曲列表
      */
     async analyzeUserProfile(songs: Song[]): Promise<UserProfile> {
-        // Delegate to GeminiService
-        return this.geminiService.analyzeUserProfile(songs);
+        // Delegate to current AI Service
+        return AIFactory.getService().analyzeUserProfile(songs);
     }
 }
 

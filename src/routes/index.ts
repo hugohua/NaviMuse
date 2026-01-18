@@ -3,15 +3,26 @@ import { CuratorController } from '../controllers/curator.controller';
 import { PlaylistController } from '../controllers/playlist.controller';
 import { StreamController } from '../controllers/stream.controller';
 import { QueueController } from '../controllers/queue.controller';
-import { tagCategories } from '../data/tags';
-
+import { tagService } from '../services/tags/TagService';
 import { searchRouter } from './search';
 
 const router = Router();
 
 // --- Config / Meta ---
-router.get('/config/tags', (req, res) => {
-    res.json(tagCategories);
+router.get('/config/tags', async (req, res) => {
+    try {
+        const tags = await tagService.getTags();
+        res.json(tags);
+    } catch (e) {
+        console.error('Fetch tags failed:', e);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+router.post('/admin/tags/refresh', async (req, res) => {
+    // Run in background
+    tagService.refreshSystemTags().catch(err => console.error('[API] Tag refresh failed:', err));
+    res.json({ status: 'ok', message: 'Tag refresh started in background.' });
 });
 
 // --- Search ---

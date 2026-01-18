@@ -1,6 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { Button } from '../components/ui/button';
-import { ArrowLeft, Save, CheckCircle, AlertCircle, Server, Cpu } from 'lucide-react';
+import { ArrowLeft, Save, CheckCircle, AlertCircle, Server, Cpu, RefreshCcw, Database } from 'lucide-react';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '../components/ui/dialog';
 import { api } from '../api';
 import type { ModelInfo } from '../types';
 import './SettingsPage.css';
@@ -11,6 +19,8 @@ export const SettingsPage: React.FC = () => {
     const [availableModels, setAvailableModels] = useState<ModelInfo[]>([]);
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [refreshingTags, setRefreshingTags] = useState(false);
+    const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
     // Queue Settings State
@@ -77,6 +87,20 @@ export const SettingsPage: React.FC = () => {
         }
     };
 
+    const performRefresh = async () => {
+        setIsDialogOpen(false);
+        setRefreshingTags(true);
+        try {
+            await api.refreshSystemTags();
+            setMessage({ type: 'success', text: '已触发后台分析任务，请稍后刷新首页查看结果。' });
+        } catch (e) {
+            console.error(e);
+            setMessage({ type: 'error', text: '触发失败，请查看控制台日志。' });
+        } finally {
+            setTimeout(() => setRefreshingTags(false), 3000);
+        }
+    };
+
     // Filter Popular Models
     const POPULAR_MODELS = [
         "google/gemini-3-pro-preview",
@@ -113,6 +137,7 @@ export const SettingsPage: React.FC = () => {
                 </div>
             )}
 
+            {/* Main Config Card */}
             <div className="settings-card">
 
                 {/* Provider Selection */}
@@ -268,6 +293,82 @@ export const SettingsPage: React.FC = () => {
                     </Button>
                 </div>
 
+            </div>
+
+            {/* Advanced Maintenance Card */}
+            {/* Advanced Maintenance Card */}
+            {/* Advanced Maintenance Card */}
+            <div className="maintenance-card">
+                <div className="maintenance-accent-line"></div>
+
+                <div className="maintenance-header">
+                    <Database className="w-5 h-5 text-orange-400" />
+                    <h2 className="maintenance-title">高级数据维护</h2>
+                </div>
+
+                <div className="maintenance-content">
+                    <div className="maintenance-info">
+                        <label className="maintenance-label">Vibe Tags 深度分析</label>
+                        <p className="maintenance-desc">
+                            利用当前配置的 AI 模型对全库歌曲进行深度语义聚类，重新生成情绪 (Mood)、场景 (Scene) 和歌手风格标签。此操作还将同步最新的全库统计数据。
+                        </p>
+                        <div className="warning-badge">
+                            <AlertCircle className="w-3.5 h-3.5" />
+                            <span>注意：此操作耗时较长 (预计 3-5 分钟)，且会产生较大的 Token 消耗。</span>
+                        </div>
+                    </div>
+
+                    <button
+                        className="analyze-btn"
+                        onClick={() => setIsDialogOpen(true)}
+                        disabled={refreshingTags}
+                    >
+                        <div className="analyze-btn-bg"></div>
+                        <RefreshCcw className={`w-4 h-4 z-10 ${refreshingTags ? 'spin-icon' : ''}`} />
+                        <span className="z-10">{refreshingTags ? '正在分析...' : '刷新全库标签'}</span>
+                    </button>
+                </div>
+
+                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                    <DialogContent className="custom-dialog-content sm:max-w-[425px]">
+                        <div className="custom-dialog-header">
+                            <DialogHeader>
+                                <DialogTitle className="flex items-center gap-2 text-xl maintenance-title">
+                                    <Database className="w-5 h-5 text-orange-500" />
+                                    确认刷新全库标签？
+                                </DialogTitle>
+                                <DialogDescription className="maintenance-desc pt-3 leading-relaxed">
+                                    此操作将使用 AI 重新分析所有歌曲的元数据，生成新的情绪、场景和风格聚类。
+                                </DialogDescription>
+                                <div className="dialog-warning-box">
+                                    <h4 className="text-sm font-medium mb-1 flex items-center gap-2">
+                                        <AlertCircle className="w-4 h-4" /> 高资源消耗
+                                    </h4>
+                                    <p className="text-xs">
+                                        请确保您有足够的 API Token 余额。分析过程预计需要 3-5 分钟。
+                                    </p>
+                                </div>
+                            </DialogHeader>
+                        </div>
+                        <div className="custom-dialog-footer">
+                            <DialogFooter className="gap-3 sm:gap-0">
+                                <Button
+                                    variant="ghost"
+                                    onClick={() => setIsDialogOpen(false)}
+                                    className="maintenance-label hover:bg-black/5"
+                                >
+                                    取消
+                                </Button>
+                                <Button
+                                    onClick={performRefresh}
+                                    className="btn-dialog-primary"
+                                >
+                                    确定执行
+                                </Button>
+                            </DialogFooter>
+                        </div>
+                    </DialogContent>
+                </Dialog>
             </div>
         </div>
     );

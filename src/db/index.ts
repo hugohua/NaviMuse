@@ -121,6 +121,14 @@ CREATE TABLE IF NOT EXISTS smart_metadata (
 
 `;
 
+const createSystemKVTable = `
+CREATE TABLE IF NOT EXISTS system_kv (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+`;
+
 // 向量维度从 config 读取
 const getCreateVecTableSQL = (dim: number) => `
 CREATE VIRTUAL TABLE IF NOT EXISTS vec_songs USING vec0(
@@ -210,6 +218,7 @@ let getVectorByNavidromeIdStmt: Database.Statement;
 export function initDB() {
     try {
         db.exec(createSmartMetadataTable);
+        db.exec(createSystemKVTable);
 
 
 

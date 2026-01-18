@@ -1,6 +1,6 @@
 ---
+trigger: always_on
 description: NaviMuse UI/UX Design System & Coding Standards
-glob: ["client/**/*.{ts,tsx,css}", "src/**/*.{ts,tsx}"]
 ---
 
 # NaviMuse UI Rules
@@ -10,7 +10,6 @@ glob: ["client/**/*.{ts,tsx,css}", "src/**/*.{ts,tsx}"]
 
 ## 1. Core Stack
 - **Framework**: React + Vite + TypeScript
-- **Styling**: Tailwind CSS (`v3.4+`)
 - **Icons**: `lucide-react` (Import as named exports, e.g., `import { Menu } from 'lucide-react'`)
 - **Components**: Radix UI primitives wrapped in `src/components/ui` (shadcn-like).
 - **Animation**: Framer Motion (`framer-motion`) for interactions; CSS for continuous effects.

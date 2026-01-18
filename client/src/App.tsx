@@ -59,6 +59,9 @@ function AppContent() {
   // Playlist list refresh trigger
   const [refreshPlaylists, setRefreshPlaylists] = useState(0);
 
+  // Search Input State
+  const [searchInput, setSearchInput] = useState('');
+
   // Mobile Menu State
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -77,16 +80,26 @@ function AppContent() {
     const next = new Set(selectedTags);
     if (next.has(tag)) {
       next.delete(tag);
+      // Remove tag from search input
+      setSearchInput(prev => {
+        // Escape special characters in tag for regex usage
+        const escapedTag = tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        // Regex to match the tag with surrounding boundaries or spaces
+        const regex = new RegExp(`(^|\\s)${escapedTag}(?=\\s|$)`, 'g');
+        return prev.replace(regex, ' ').replace(/\s+/g, ' ').trim();
+      });
     } else {
       next.add(tag);
+      // Add tag to search input
+      setSearchInput(prev => (prev + ' ' + tag).trim());
     }
     setSelectedTags(next);
   };
 
   const generate = async (inputPrompt: string = '') => {
     // If inputPrompt is empty (e.g. from tags only), check if we have tags
-    const activePrompt = inputPrompt;
-    const combinedPrompt = [activePrompt, ...Array.from(selectedTags)].filter(Boolean).join(', ');
+    const activePrompt = inputPrompt || searchInput;
+    const combinedPrompt = activePrompt; // Now purely relying on the input box content which includes tags
 
     if (!combinedPrompt) {
       showPopup({ message: '请输入提示词或选择标签', title: 'Input Required' });
@@ -211,6 +224,8 @@ function AppContent() {
                 onModeChange={handleModeChange}
                 onGenerate={generate}
                 loading={loading}
+                value={searchInput}
+                onChange={setSearchInput}
               />
 
               {/* Profile Card */}

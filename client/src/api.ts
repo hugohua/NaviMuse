@@ -27,13 +27,24 @@ export type {
 };
 
 export const api = {
-    /**
-     * Fetch Tag Categories from Backend Configuration
-     */
+    // --- Config / Meta ---
     getTags: async (): Promise<TagCategory[]> => {
         const res = await fetch('/api/config/tags');
         if (!res.ok) {
             throw new Error(`Failed to fetch tags: ${res.statusText}`);
+        }
+        return res.json();
+    },
+
+    /**
+     * Trigger background refresh of system tags (Mood/Scene/Artist clusters)
+     */
+    refreshSystemTags: async (): Promise<{ status: string, message: string }> => {
+        const res = await fetch('/api/admin/tags/refresh', {
+            method: 'POST'
+        });
+        if (!res.ok) {
+            throw new Error(`Failed to refresh tags: ${res.statusText}`);
         }
         return res.json();
     },
