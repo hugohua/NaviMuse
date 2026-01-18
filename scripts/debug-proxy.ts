@@ -1,3 +1,13 @@
+/**
+ * 网络代理验证工具
+ * 
+ * 功能：
+ * 1. 验证 HTTP/HTTPS 代理配置是否生效
+ * 2. 测试通过代理连接外网（如 OpenRouter/Gemini）的连通性
+ * 
+ * 用法：
+ * npx ts-node --project tsconfig.server.json scripts/debug-proxy.ts
+ */
 import dotenv from 'dotenv';
 import path from 'path';
 import nodeFetch from 'node-fetch';

@@ -1,3 +1,12 @@
+/**
+ * 数据库简易计数脚本
+ * 
+ * 功能：
+ * 1. 快速查询 smart_metadata 表中的总记录数
+ * 
+ * 用法：
+ * npx tsx scripts/check-db.ts
+ */
 import { db, initDB } from '../src/db';
 
 initDB();

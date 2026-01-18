@@ -1,4 +1,14 @@
 
+/**
+ * 重试机制准备脚本
+ * 
+ * 功能：
+ * 1. 将处理失败或卡住的内容重新标记为待处理
+ * 2. 准备重新导出的 JSONL 文件以供再次提交 Batch 任务
+ * 
+ * 用法：
+ * npx ts-node --project tsconfig.server.json scripts/prepare-retry.ts
+ */
 import { initDB, db } from '../src/db';
 import { METADATA_SYSTEM_PROMPT } from '../src/services/ai/systemPrompt';
 import fs from 'fs';

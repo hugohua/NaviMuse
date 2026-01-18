@@ -14,6 +14,18 @@
  *   data/batch/batch_001.jsonl, batch_002.jsonl, ...
  */
 
+/**
+ * 批量元数据导出脚本
+ * 
+ * 功能：
+ * 1. 扫描数据库中缺失元数据的歌曲
+ * 2. 按照 Alibaba Batch API 格式导出为 JSONL 文件
+ * 3. 自动匹配系统当前使用的 Prompt 版本
+ * 
+ * 用法：
+ * npx ts-node --project tsconfig.server.json scripts/batch-export.ts [参数]
+ */
+
 import { initDB, db } from '../src/db';
 import { METADATA_SYSTEM_PROMPT } from '../src/services/ai/systemPrompt';
 import fs from 'fs';

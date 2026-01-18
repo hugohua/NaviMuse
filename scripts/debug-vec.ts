@@ -1,4 +1,14 @@
-
+/**
+ * 数据库向量扩展调试工具
+ * 
+ * 功能：
+ * 1. 尝试加载 sqlite-vec 扩展
+ * 2. 验证向量表创建和查询是否正常
+ * 3. 检查系统环境对向量数据库的支持情况
+ * 
+ * 用法：
+ * npx ts-node --project tsconfig.server.json scripts/debug-vec.ts
+ */
 import Database from 'better-sqlite3';
 import * as sqliteVec from 'sqlite-vec';
 import path from 'path';

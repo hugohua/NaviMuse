@@ -1,4 +1,14 @@
 
+/**
+ * 向量状态同步实用工具
+ * 
+ * 功能：
+ * 1. 检查 smart_metadata 表与 vec_songs 表的对应关系
+ * 2. 同步 embedding_status 字段，确保数据库状态反映真实的向量化情况
+ * 
+ * 用法：
+ * npx ts-node --project tsconfig.server.json scripts/sync-embedding-status.ts
+ */
 import { db } from '../src/db';
 import { config } from '../src/config';
 

@@ -1,3 +1,13 @@
+/**
+ * 任务队列核心功能测试脚本
+ * 
+ * 功能：
+ * 1. 模拟将任务加入 BullMQ 队列
+ * 2. 验证 Worker 的处理逻辑和异常重试机制
+ * 
+ * 用法：
+ * npx ts-node --project tsconfig.server.json scripts/test-queue.ts
+ */
 import { addToQueue, startWorker, metadataQueue } from '../src/services/queue/metadataQueue';
 import { metadataRepo, db } from '../src/db';
 

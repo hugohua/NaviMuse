@@ -1,4 +1,13 @@
 
+/**
+ * LLM 字段解析测试脚本
+ * 
+ * 功能：
+ * 1. 验证从 AI 响应中提取 tempo_vibe 和 timbre_texture 字段的准确性
+ * 
+ * 用法：
+ * npx ts-node --project tsconfig.server.json scripts/test-llm-field.ts
+ */
 import { db, metadataRepo, initDB } from '../src/db';
 
 async function testLLMField() {

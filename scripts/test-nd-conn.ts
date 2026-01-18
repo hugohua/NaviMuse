@@ -1,4 +1,13 @@
 
+/**
+ * Navidrome 连接与配置验证脚本
+ * 
+ * 功能：
+ * 1. 验证配置文件中的 Navidrome URL 和 Credentials
+ * 
+ * 用法：
+ * npx ts-node --project tsconfig.server.json scripts/test-nd-conn.ts
+ */
 import { navidromeClient } from '../src/services/navidrome';
 import { config } from '../src/config';
 

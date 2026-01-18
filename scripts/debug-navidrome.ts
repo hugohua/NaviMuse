@@ -1,3 +1,14 @@
+/**
+ * Navidrome 深度调试工具
+ * 
+ * 功能：
+ * 1. 抓取并打印 Navidrome API 的原始响应数据
+ * 2. 验证配置中的 API Key、URL 是否正确
+ * 3. 排查同步过程中的字段解析问题
+ * 
+ * 用法：
+ * npx ts-node --project tsconfig.server.json scripts/debug-navidrome.ts
+ */
 import { navidromeClient } from '../src/services/navidrome';
 import { config } from '../src/config';
 

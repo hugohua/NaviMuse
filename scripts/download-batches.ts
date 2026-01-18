@@ -1,4 +1,13 @@
 
+/**
+ * 批量结果下载工具
+ * 
+ * 功能：
+ * 1. 从百炼 API 下载已完成 Batch 任务的结果文件
+ * 
+ * 用法：
+ * npx ts-node --project tsconfig.server.json scripts/download-batches.ts
+ */
 import fs from 'fs';
 import path from 'path';
 import 'dotenv/config';

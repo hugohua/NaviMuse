@@ -1,4 +1,13 @@
 
+/**
+ * 歌曲策展分析测试脚本
+ * 
+ * 功能：
+ * 1. 验证 Vibe Tags 推荐与特定“策展（Curation）”逻辑的匹配度
+ * 
+ * 用法：
+ * npx ts-node --project tsconfig.server.json scripts/analyze-curation.ts
+ */
 import 'dotenv/config';
 import { hybridSearchService } from '../src/services/recommendation/HybridSearchService';
 import { initDB } from '../src/db';

@@ -1,4 +1,14 @@
 
+/**
+ * Prompt 质量对比测试脚本
+ * 
+ * 功能：
+ * 1. 在同一组歌曲数据上，对比不同版本的 Prompt（如 V5 vs V6）的输出质量
+ * 2. 验证 Google AI 与其他 Provider 的生成风格差异
+ * 
+ * 用法：
+ * npx ts-node --project tsconfig.server.json scripts/test-prompt-comparison.ts
+ */
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import nodeFetch from 'node-fetch';

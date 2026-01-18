@@ -1,4 +1,13 @@
 
+/**
+ * AI 数据导出实用脚本
+ * 
+ * 功能：
+ * 1. 将现有的结构化元数据分析结果导出为外部可读格式
+ * 
+ * 用法：
+ * npx ts-node --project tsconfig.server.json scripts/export_ai_data.ts
+ */
 import Database from 'better-sqlite3';
 import path from 'path';
 import * as fs from 'fs';

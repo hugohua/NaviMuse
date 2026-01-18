@@ -1,3 +1,12 @@
+/**
+ * 系统设置 API 测试脚本
+ * 
+ * 功能：
+ * 1. 验证修改 AI Provider、代理等设置后，后端是否能正确持久化并生效
+ * 
+ * 用法：
+ * npx ts-node --project tsconfig.server.json scripts/test-settings.ts
+ */
 import fetch from 'node-fetch';
 import { db, systemRepo } from '../src/db';
 

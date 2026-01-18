@@ -1,4 +1,13 @@
 
+/**
+ * 向量状态修复脚本
+ * 
+ * 功能：
+ * 1. 针对特定的向量丢失问题，强制重置相关记录的 embedding_status
+ * 
+ * 用法：
+ * npx ts-node --project tsconfig.server.json scripts/fix-embedding-status.ts
+ */
 import Database from 'better-sqlite3';
 import path from 'path';
 

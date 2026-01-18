@@ -1,3 +1,13 @@
+/**
+ * 推荐引擎逻辑测试脚本
+ * 
+ * 功能：
+ * 1. 模拟推荐请求，验证推荐算法的返回结果
+ * 2. 检查推荐分数的计算规则（VIBE 匹配度、新鲜度等）
+ * 
+ * 用法：
+ * npx ts-node --project tsconfig.server.json scripts/test-recommendation.ts
+ */
 import dotenv from 'dotenv';
 import path from 'path';
 

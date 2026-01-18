@@ -1,5 +1,16 @@
+/**
+ * 数据库完整性分析脚本
+ * 
+ * 功能：
+ * 1. 深度扫描 `smart_metadata` 表中的数据质量
+ * 2. 识别缺失关键字段、格式错误（如 vector_anchor 扁平化）的记录
+ * 3. 统计待处理（元数据或向量缺失）的数量
+ * 
+ * 用法：
+ * npx ts-node --project tsconfig.server.json scripts/analyze-db-integrity.ts
+ */
 
-import { db } from '../src/db';
+import { db, initDB } from '../src/db';
 import { config } from '../src/config';
 import fs from 'fs';
 

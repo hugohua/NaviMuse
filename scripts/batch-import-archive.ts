@@ -1,4 +1,13 @@
 
+/**
+ * 批量导入归档实用工具
+ * 
+ * 功能：
+ * 1. 将旧版的或导出的元数据压缩包重新导入数据库
+ * 
+ * 用法：
+ * npx ts-node --project tsconfig.server.json scripts/batch-import-archive.ts
+ */
 import fs from 'fs';
 import path from 'path';
 import Database from 'better-sqlite3';

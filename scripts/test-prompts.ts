@@ -1,3 +1,12 @@
+/**
+ * 通用 Prompt 逻辑测试脚本
+ * 
+ * 功能：
+ * 1. 快速验证 systemPrompt.ts 中配置的提示词是否能产生符合预期的 JSON
+ * 
+ * 用法：
+ * npx ts-node --project tsconfig.server.json scripts/test-prompts.ts
+ */
 import * as fs from 'fs';
 import dotenv from 'dotenv';
 import { db } from '../src/db';

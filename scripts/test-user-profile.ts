@@ -1,4 +1,13 @@
 
+/**
+ * 用户画像基础服务测试脚本
+ * 
+ * 功能：
+ * 1. 验证用户画像数据的存储、读取和更新
+ * 
+ * 用法：
+ * npx ts-node --project tsconfig.server.json scripts/test-user-profile.ts
+ */
 import { userProfileService } from '../src/services/recommendation/UserProfileService';
 import { userProfileRepo, metadataRepo, initDB } from '../src/db';
 import 'dotenv/config';

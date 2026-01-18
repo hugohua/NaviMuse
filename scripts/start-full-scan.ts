@@ -1,3 +1,14 @@
+/**
+ * 全量扫描与分析启动脚本
+ * 
+ * 功能：
+ * 1. 启动 Navidrome 全量同步
+ * 2. 自动将新发现的歌曲加入分析队列
+ * 3. 启动后台 Worker 开始处理
+ * 
+ * 用法：
+ * npx ts-node --project tsconfig.server.json scripts/start-full-scan.ts
+ */
 import { navidromeSyncService } from '../src/services/navidromeSync';
 import { metadataRepo, initDB } from '../src/db';
 import { addToQueue, startWorker, metadataQueue } from '../src/services/queue/metadataQueue';

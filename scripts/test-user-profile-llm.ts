@@ -1,4 +1,14 @@
 
+/**
+ * 用户画像生成 (LLM 驱动) 测试脚本
+ * 
+ * 功能：
+ * 1. 根据用户的听歌历史（Top Artists/Genres），调用 AI 生成结构化的用户画像标签
+ * 2. 验证用户画像对推荐权重的修正逻辑
+ * 
+ * 用法：
+ * npx ts-node --project tsconfig.server.json scripts/test-user-profile-llm.ts
+ */
 import { recommendationService } from '../src/services/recommendation/RecommendationService';
 import { Song } from '../src/types';
 import 'dotenv/config';

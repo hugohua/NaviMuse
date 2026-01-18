@@ -1,4 +1,13 @@
 
+/**
+ * 解析失败行调试工具
+ * 
+ * 功能：
+ * 1. 专门用于排查 Batch 任务返回的损坏或格式错误的 JSONL 行
+ * 
+ * 用法：
+ * npx ts-node --project tsconfig.server.json scripts/debug-parse-fail.ts
+ */
 import fs from 'fs';
 import path from 'path';
 

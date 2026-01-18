@@ -1,4 +1,18 @@
 
+/**
+ * 重置分析状态脚本
+ * 
+ * 功能：
+ * 1. 清空 `smart_metadata` 表中的 `last_analyzed` 字段
+ * 2. 强制系统在下次运行时重新对所有歌曲进行 AI 分析
+ * 
+ * 警告：
+ * 此操作将导致已生成的 AI 元数据（描述、标签等）被覆盖重新生成。
+ * 
+ * 用法：
+ * npx ts-node --project tsconfig.server.json scripts/reset-analysis.ts
+ */
+
 import { db, initDB } from '../src/db';
 import 'dotenv/config';
 

@@ -1,4 +1,13 @@
 
+/**
+ * 批量映射文件合并工具
+ * 
+ * 功能：
+ * 1. 将多个批次处理结果的映射文件合并，便于统一导入
+ * 
+ * 用法：
+ * npx ts-node --project tsconfig.server.json scripts/merge-mapping.ts
+ */
 import fs from 'fs';
 import path from 'path';
 

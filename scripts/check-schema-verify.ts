@@ -1,3 +1,13 @@
+/**
+ * 数据库 Schema 验证脚本
+ * 
+ * 功能：
+ * 1. 检查 smart_metadata 表的字段结构
+ * 2. 验证是否包含所有必需的 AI 分析和向量字段
+ * 
+ * 用法：
+ * npx ts-node --project tsconfig.server.json scripts/check-schema-verify.ts
+ */
 import { db, initDB } from '../src/db';
 
 initDB();

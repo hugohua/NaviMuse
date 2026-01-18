@@ -1,3 +1,13 @@
+/**
+ * 数据库导出明细报表脚本
+ * 
+ * 功能：
+ * 1. 生成包含所有已处理歌曲元数据的格式化报表
+ * 2. 导出为本地文件，便于人工核对生成质量
+ * 
+ * 用法：
+ * npx ts-node --project tsconfig.server.json scripts/export-report.ts
+ */
 import { db, initDB } from '../src/db';
 import fs from 'fs';
 import path from 'path';

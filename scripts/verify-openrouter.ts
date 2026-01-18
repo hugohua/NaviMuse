@@ -1,4 +1,14 @@
 
+/**
+ * OpenRouter 连通性验证脚本
+ * 
+ * 功能：
+ * 1. 验证 OpenRouter SDK 和 API Key 是否配置正确
+ * 2. 测试通过 SDK 进行简单推理的可行性
+ * 
+ * 用法：
+ * npx ts-node --project tsconfig.server.json scripts/verify-openrouter.ts
+ */
 import { OpenRouter } from "@openrouter/sdk";
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import nodeFetch from 'node-fetch';

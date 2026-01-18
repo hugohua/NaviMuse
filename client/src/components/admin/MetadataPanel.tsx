@@ -258,7 +258,7 @@ export function MetadataPanel() {
                                 <td colSpan={6} className="empty-cell">没有找到歌曲</td>
                             </tr>
                         ) : (
-                            filteredSongs.map((song, idx) => {
+                            filteredSongs.map((song) => {
                                 const hasMetadata = !!song.analysis_json;
                                 const statusClass = getStatusClass(song.processing_status);
 
@@ -266,7 +266,7 @@ export function MetadataPanel() {
                                     <tr
                                         key={song.navidrome_id}
                                         className={`metadata-row ${hasMetadata ? 'has-data' : ''} ${selectedIds.includes(song.navidrome_id) ? 'selected' : ''}`}
-                                        onClick={(e) => {
+                                        onClick={() => {
                                             // Handle row click for details, but ignore if clicking checkbox
                                             // Or maybe row click selects? Let's keep row click for details for now
                                             // unless we want shift-click.

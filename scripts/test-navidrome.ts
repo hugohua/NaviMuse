@@ -1,4 +1,14 @@
 
+/**
+ * Navidrome SDK 连通性测试脚本
+ * 
+ * 功能：
+ * 1. 测试 Navidrome API 的基础连接
+ * 2. 验证获取歌曲列表、专辑等接口的可用性
+ * 
+ * 用法：
+ * npx ts-node --project tsconfig.server.json scripts/test-navidrome.ts
+ */
 import 'dotenv/config'; // Load .env
 import { navidromeClient } from '../src/services/navidrome';
 

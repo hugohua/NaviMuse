@@ -1,4 +1,13 @@
 
+/**
+ * 数据库基础调试工具
+ * 
+ * 功能：
+ * 1. 打印当前数据库中表结构、记录数等基础统计信息
+ * 
+ * 用法：
+ * npx ts-node --project tsconfig.server.json scripts/debug-db.ts
+ */
 import { db, metadataRepo, initDB } from '../src/db';
 import path from 'path';
 

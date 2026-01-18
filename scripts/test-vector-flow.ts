@@ -1,4 +1,13 @@
 
+/**
+ * 向量处理完整流程测试脚本
+ * 
+ * 功能：
+ * 1. 验证“生成分析 -> 生成向量 -> 存入向量库”的闭环流程
+ * 
+ * 用法：
+ * npx ts-node --project tsconfig.server.json scripts/test-vector-flow.ts
+ */
 import { db, initDB, metadataRepo } from '../src/db';
 import { GeminiService } from '../src/services/ai/GeminiService';
 import { EmbeddingService } from '../src/services/ai/EmbeddingService';

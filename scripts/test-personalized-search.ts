@@ -1,4 +1,14 @@
 
+/**
+ * 个性化搜索测试脚本
+ * 
+ * 功能：
+ * 1. 测试结合用户偏好（UserProfile）的搜索排序效果
+ * 2. 模拟真实用户的搜索流程，检查结果的相关性
+ * 
+ * 用法：
+ * npx ts-node --project tsconfig.server.json scripts/test-personalized-search.ts
+ */
 import { hybridSearchService } from '../src/services/recommendation/HybridSearchService';
 import { initDB } from '../src/db';
 import 'dotenv/config';

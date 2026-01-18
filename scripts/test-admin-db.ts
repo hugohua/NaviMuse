@@ -1,4 +1,14 @@
 
+/**
+ * 管理端数据库接口测试脚本
+ * 
+ * 功能：
+ * 1. 验证 AdminMetadataView 所需的数据库分页查询
+ * 2. 检查标记（Flag）和过滤逻辑是否正确
+ * 
+ * 用法：
+ * npx ts-node --project tsconfig.server.json scripts/test-admin-db.ts
+ */
 import { metadataRepo, initDB } from '../src/db';
 
 async function main() {

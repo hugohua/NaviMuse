@@ -1,3 +1,15 @@
+/**
+ * AI 连接测试脚本
+ * 
+ * 功能：
+ * 1. 验证配置文件中的 AI Provider 连接性
+ * 2. 测试简单的文本生成任务
+ * 3. 验证网络代理（如果配置）是否生效
+ * 
+ * 用法：
+ * npx ts-node --project tsconfig.server.json scripts/test-ai.ts
+ */
+
 import { AIFactory } from '../src/services/ai';
 import path from 'path';
 import dotenv from 'dotenv';

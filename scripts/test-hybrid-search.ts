@@ -1,4 +1,14 @@
 
+/**
+ * 混合搜索功能测试脚本
+ * 
+ * 功能：
+ * 1. 验证 Vibe Tags + 向量嵌入的混合搜索效果
+ * 2. 测试不同搜索条件下的召回率和相关度
+ * 
+ * 用法：
+ * npx ts-node --project tsconfig.server.json scripts/test-hybrid-search.ts
+ */
 import { hybridSearchService } from '../src/services/recommendation/HybridSearchService';
 import { initDB } from '../src/db';
 import 'dotenv/config';
