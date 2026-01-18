@@ -36,39 +36,20 @@ export const startEmbeddingOnlyWorker = () => {
         const { songs, correlationId } = job.data;
         console.log(`[EmbeddingOnly] Processing Job ${job.id} (${correlationId}) - ${songs.length} songs`);
 
-        const embeddingService = new EmbeddingService();
-        let successCount = 0;
+        const { processEmbeddingOnlyBatch } = await import('./processors');
 
-        for (const song of songs) {
-            try {
-                // 1. 解析已有的 analysis_json
-                const analysisData = JSON.parse(song.analysis_json);
+        try {
+            const result = await processEmbeddingOnlyBatch(songs, (msg) => {
+                console.log(`[EmbeddingOnly] ${msg}`);
+            });
 
-                // 2. 构建向量文本
-                const vectorText = EmbeddingService.constructVectorText(analysisData, {
-                    title: song.title,
-                    artist: song.artist
-                });
-
-                // 3. 生成向量
-                const vector = await embeddingService.embed(vectorText);
-
-                // 4. 获取 rowid 并保存向量
-                const rowId = metadataRepo.getSongRowId(song.navidrome_id);
-                if (rowId) {
-                    metadataRepo.saveVector(rowId, vector);
-                    metadataRepo.updateEmbeddingStatus(song.navidrome_id, 'COMPLETED');
-                    successCount++;
-                }
-
-            } catch (error: any) {
-                console.error(`[EmbeddingOnly] Failed for ${song.title}: ${error.message}`);
-                metadataRepo.updateEmbeddingStatus(song.navidrome_id, 'FAILED');
-            }
+            console.log(`[EmbeddingOnly] Job ${job.id} Complete. ${result.count}/${songs.length} succeeded.`);
+            return { success: true, count: result.count, total: songs.length };
+        } catch (error: any) {
+            console.error(`[EmbeddingOnly] Job ${job.id} Failed:`, error);
+            throw error;
         }
 
-        console.log(`[EmbeddingOnly] Job ${job.id} Complete. ${successCount}/${songs.length} succeeded.`);
-        return { success: true, count: successCount, total: songs.length };
 
     }, {
         connection: redisConnection,

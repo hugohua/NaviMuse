@@ -8,10 +8,11 @@ export class AdminController {
         try {
             const page = parseInt(req.query.page as string) || 1;
             const limit = parseInt(req.query.limit as string) || 50;
+            const filter = req.query.filter as 'all' | 'no_metadata' | 'no_vector' | undefined;
             const offset = (page - 1) * limit;
 
-            const total = metadataRepo.getSongCount();
-            const songs = metadataRepo.getPaginatedSongs(limit, offset);
+            const total = metadataRepo.getSongCount(filter);
+            const songs = metadataRepo.getPaginatedSongs(limit, offset, filter);
 
             res.json({
                 data: songs,

@@ -53,117 +53,15 @@ export const startWorker = () => {
         console.log(`[Worker] Processing Job ${job.id} (Correlation: ${correlationId}) - ${songs.length} songs`);
 
         try {
-            // 0. Mark as Processing
-            metadataRepo.runTransaction(() => {
-                for (const song of songs) {
-                    metadataRepo.updateStatus(song.navidrome_id, 'PROCESSING');
-                }
+            // Import processor dynamically to avoid circular dependencies if any
+            const { processFullAnalysisBatch } = await import('./processors');
+
+            const result = await processFullAnalysisBatch(songs, (msg) => {
+                console.log(`[Worker] ${msg}`);
             });
 
-            // 1. Get AI Service
-            const aiService = AIFactory.getService();
-            const embeddingService = new EmbeddingService();
-
-            // --- Phase 1: Metadata Generation (1 Call) ---
-            console.log(`[Worker] Sending Metadata Request...`);
-            const results = await aiService.generateBatchMetadata(songs.map(s => ({
-                id: s.navidrome_id,
-                title: s.title,
-                artist: s.artist
-            })));
-            console.log(`[Worker] Metadata Complete. Received ${results.length} results.`);
-
-            // --- Phase 2: Prepare Updates & Vector Texts ---
-            const updates: {
-                songId: string,
-                metaUpdate: any,
-                vectorText?: string
-            }[] = [];
-
-            for (const result of results) {
-                const songId = result.id ? String(result.id) : null;
-                if (!songId) continue;
-
-                const inputSong = songs.find(s => s.navidrome_id === songId);
-                const analysisJson = JSON.stringify(result);
-
-                // Extract Fields
-                const acoustic = result.vector_anchor?.acoustic_model || "";
-                const semantic = result.vector_anchor?.semantic_push || "";
-                const description = `${acoustic}\n\n[Imagery] ${semantic}`;
-
-                const tags = [
-                    ...(result.embedding_tags?.mood_coord || []),
-                    ...(result.embedding_tags?.objects || [])
-                ];
-                if (result.embedding_tags?.scene_tag) tags.push(result.embedding_tags.scene_tag);
-                if (result.embedding_tags?.spectrum) tags.push(`#Spectrum:${result.embedding_tags.spectrum}`);
-
-                const metaUpdate = {
-                    description: description,
-                    tags: tags,
-                    mood: (result.embedding_tags?.mood_coord || [])[0] || "Unknown",
-                    is_instrumental: result.is_instrumental ? 1 : 0, // [中文注释] 使用 AI 显式返回的纯音乐标记 (1=是, 0=否)
-                    analysis_json: analysisJson,
-                    energy_level: result.embedding_tags?.energy,
-                    visual_popularity: result.popularity_raw,
-                    language: result.language, // [中文注释] 存储检测到的语种 (CN/EN/etc)
-                    spectrum: result.embedding_tags?.spectrum,
-                    spatial: result.embedding_tags?.spatial,
-                    scene_tag: result.embedding_tags?.scene_tag,
-                    tempo_vibe: result.embedding_tags?.tempo_vibe,
-                    timbre_texture: result.embedding_tags?.timbre_texture,
-                    llm: result.llm_model // [AI] Model Name
-                };
-
-                // Prepare Vector Text
-                let vectorText = undefined;
-                if (inputSong) {
-                    vectorText = EmbeddingService.constructVectorText(result, {
-                        title: inputSong.title,
-                        artist: inputSong.artist,
-                        genre: (result.embedding_tags?.objects || []).find(t => t.includes('Genre') || t.includes('Style')) || ""
-                    });
-                }
-
-                updates.push({ songId, metaUpdate, vectorText });
-            }
-
-            // --- Phase 3: Batch Vector Embedding (1 Call) ---
-            const validVectorTexts = updates.filter(u => u.vectorText).map(u => u.vectorText!);
-            let vectors: number[][] = [];
-
-            if (validVectorTexts.length > 0) {
-                console.log(`[Worker] Generating Batch Embeddings for ${validVectorTexts.length} items...`);
-                try {
-                    vectors = await embeddingService.embedBatch(validVectorTexts);
-                } catch (err) {
-                    console.error("Batch Embedding Failed, skipping vector save:", err);
-                    // Can continue to save metadata even if vector fails
-                }
-            }
-
-            // --- Phase 4: Commit to DB (Batch & Transaction) ---
-            let vecIndex = 0;
-            const batchData = updates.map(u => {
-                let vector: number[] | undefined = undefined;
-                if (u.vectorText && vectors[vecIndex]) {
-                    vector = vectors[vecIndex];
-                    vecIndex++;
-                }
-                return {
-                    songId: u.songId,
-                    metaUpdate: u.metaUpdate,
-                    vector: vector
-                };
-            });
-
-            if (batchData.length > 0) {
-                metadataRepo.saveBatchAnalysis(batchData);
-            }
-
-            console.log(`[Worker] Job ${job.id} Complete. Updated ${batchData.length}/${songs.length}.`);
-            return { success: true, count: batchData.length };
+            console.log(`[Worker] Job ${job.id} Complete. Updated ${result.count}.`);
+            return { success: true, count: result.count };
 
         } catch (error: any) {
             console.error(`[Worker] Job ${job.id} Failed:`, error);
@@ -209,7 +107,7 @@ export const startWorker = () => {
             }
             // ----------------------------------------------------
 
-            // Mark as FAILED in DB (so we know it didn't finish)
+            // Mark as FAILED in DB
             try {
                 metadataRepo.runTransaction(() => {
                     for (const song of songs) {
@@ -221,18 +119,16 @@ export const startWorker = () => {
         }
     }, {
         connection,
-        concurrency: parseInt(systemRepo.getSetting('queue_concurrency') || String(config.queue.concurrency), 10), // Configurable Concurrency
+        concurrency: parseInt(systemRepo.getSetting('queue_concurrency') || String(config.queue.concurrency), 10),
         limiter: {
-            max: parseInt(systemRepo.getSetting('queue_rate_limit_max') || String(config.queue.rateLimitMax), 10), // Configurable Rate Limit
-            duration: 60000 // 1 Minute
+            max: parseInt(systemRepo.getSetting('queue_rate_limit_max') || String(config.queue.rateLimitMax), 10),
+            duration: 60000
         },
-        // Stale Job 检测配置 (防止僵尸任务)
-        lockDuration: 120000,      // 锁定时间 2 分钟（AI 调用可能较慢）
-        stalledInterval: 60000,    // 每 60 秒检查一次僵尸任务
-        maxStalledCount: 2,        // 超过 2 次 stalled 才标记失败
+        lockDuration: 120000,
+        stalledInterval: 60000,
+        maxStalledCount: 2,
     });
 
-    // Stalled 事件监听
     worker.on('stalled', (jobId) => {
         console.warn(`[Worker] ⚠️ Job ${jobId} stalled - will be automatically retried.`);
     });
@@ -278,19 +174,54 @@ export const resumeQueue = async (): Promise<void> => {
 
 /**
  * 清空队列中的所有任务
- * 包括等待中、延迟中的任务
+ * 包括等待中、延迟中、失败的任务
  */
 export const clearQueue = async (): Promise<{ clearedJobs: number }> => {
     // 获取当前任务数量
     const counts = await metadataQueue.getJobCounts();
-    const totalBefore = counts.waiting + counts.delayed + counts.active;
+    const totalBefore = counts.waiting + counts.delayed + counts.active + counts.failed;
 
-    // 清空不同状态的任务
-    await metadataQueue.drain(); // 清空等待中的任务
-    await metadataQueue.clean(0, 1000, 'delayed'); // 清空延迟任务
-    await metadataQueue.clean(0, 1000, 'failed');  // 清空失败任务
+    console.log(`[Queue] Current job counts:`, counts);
 
-    console.log(`[Queue] Cleared ${totalBefore} jobs.`);
+    // 1. 暂停队列（确保没有新任务被处理）
+    await metadataQueue.pause();
+
+    // 2. 清空等待中的任务
+    await metadataQueue.drain();
+
+    // 3. 清空延迟任务
+    await metadataQueue.clean(0, 1000, 'delayed');
+
+    // 4. 清空失败任务
+    await metadataQueue.clean(0, 1000, 'failed');
+
+    // 5. 清空已完成任务（释放 Redis 内存）
+    await metadataQueue.clean(0, 1000, 'completed');
+
+    // 6. 强制移除正在活动的任务（如果有）
+    const activeJobs = await metadataQueue.getJobs(['active']);
+    for (const job of activeJobs) {
+        try {
+            await job.remove();
+            console.log(`[Queue] Force removed active job ${job.id}`);
+        } catch (e) {
+            // Job may have already completed
+        }
+    }
+
+    // 7. 再次检查并清理残留的等待任务
+    const waitingJobs = await metadataQueue.getJobs(['waiting']);
+    for (const job of waitingJobs) {
+        try {
+            await job.remove();
+        } catch (e) {
+            // Ignore
+        }
+    }
+
+    const countsAfter = await metadataQueue.getJobCounts();
+    console.log(`[Queue] Cleared ${totalBefore} jobs. Remaining:`, countsAfter);
+
     return { clearedJobs: totalBefore };
 };
 

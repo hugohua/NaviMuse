@@ -208,14 +208,27 @@ export const api = {
         return res.json();
     },
 
-    getAdminSongs: async (page: number = 1, limit: number = 50): Promise<{
-        data: any[], // detailed metadata
+    getAdminSongs: async (page: number = 1, limit: number = 50, filter?: 'all' | 'no_metadata' | 'no_vector'): Promise<{
+        data: any[],
         pagination: { total: number, page: number, limit: number, totalPages: number }
     }> => {
-        const res = await fetch(`/api/admin/songs?page=${page}&limit=${limit}`);
+        const filterQuery = filter ? `&filter=${filter}` : '';
+        const res = await fetch(`/api/admin/songs?page=${page}&limit=${limit}${filterQuery}`);
         if (!res.ok) {
             throw new Error(`Failed to fetch songs: ${res.statusText}`);
         }
+        return res.json();
+    },
+
+    /**
+     * 立即处理选中的歌曲 (Batch Immediate)
+     */
+    processImmediate: async (ids: string[], type: 'full' | 'metadata' | 'embedding'): Promise<{ success: boolean, count: number, message: string }> => {
+        const res = await fetch('/api/queue/immediate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids, type })
+        });
         return res.json();
     },
 

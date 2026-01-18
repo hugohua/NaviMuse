@@ -282,5 +282,51 @@ export const QueueController = {
         } catch (error: any) {
             res.status(500).json({ success: false, message: error.message });
         }
+    },
+
+    // ========== 即时处理 (Immediate) ==========
+
+    /**
+     * POST /api/queue/immediate
+     * 立即处理选中的歌曲（不通过 BullMQ 队列）
+     */
+    immediate: async (req: Request, res: Response) => {
+        try {
+            const { ids, type } = req.body; // type: 'full' | 'metadata' | 'embedding'
+
+            if (!ids || !Array.isArray(ids) || ids.length === 0) {
+                return res.status(400).json({ success: false, message: 'Invalid IDs provided' });
+            }
+
+            if (ids.length > 20) {
+                return res.status(400).json({ success: false, message: 'Too many items selected (max 20)' });
+            }
+
+            initDB();
+            const songs = metadataRepo.getSongsByIds(ids);
+
+            if (songs.length === 0) {
+                return res.json({ success: true, message: 'No songs found for provided IDs', count: 0 });
+            }
+
+            // Dynamic Import to avoid earlier load issues if any
+            const { processFullAnalysisBatch, processMetadataOnlyBatch, processEmbeddingOnlyBatch } = await import('../services/queue/processors');
+
+            let result;
+            if (type === 'metadata') {
+                result = await processMetadataOnlyBatch(songs, (msg) => console.log(`[Immediate] ${msg}`));
+            } else if (type === 'embedding') {
+                result = await processEmbeddingOnlyBatch(songs, (msg) => console.log(`[Immediate] ${msg}`));
+            } else {
+                // Default 'full'
+                result = await processFullAnalysisBatch(songs, (msg) => console.log(`[Immediate] ${msg}`));
+            }
+
+            res.json({ success: true, count: result.count, message: 'Processed successfully' });
+
+        } catch (error: any) {
+            console.error('[QueueController] Immediate processing error:', error);
+            res.status(500).json({ success: false, message: error.message });
+        }
     }
 };

@@ -378,12 +378,16 @@ function AppContent() {
   );
 }
 
+import { ToastProvider } from './components/ui/toast';
+
 function App() {
   return (
     <AudioPlayerProvider>
       <QueuePanelProvider>
         <UserProfileProvider>
-          <AppContent />
+          <ToastProvider>
+            <AppContent />
+          </ToastProvider>
         </UserProfileProvider>
       </QueuePanelProvider>
     </AudioPlayerProvider>

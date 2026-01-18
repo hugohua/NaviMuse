@@ -3,7 +3,7 @@ import { api } from '../../api';
 import type { QueueStatus, QueueActionResult } from '../../api';
 import { Button } from '../ui/button';
 import {
-    Play, Pause, Square, RefreshCw, Database, FileJson, Clock,
+    Play, Square, RefreshCw, Database, FileJson, Clock,
     Loader2, CheckCircle2, XCircle, AlertTriangle, Activity, ExternalLink, Layers
 } from 'lucide-react';
 import './QueuePanel.css';
@@ -170,15 +170,28 @@ export function QueuePanel({ onClose }: QueuePanelProps) {
                     <span>启动任务</span>
                 </Button>
 
-                <Button
-                    className="action-btn"
-                    variant="outline"
-                    onClick={() => handleAction('resume', api.resumeQueue)}
-                    disabled={!!actionLoading || !mainStatus?.isPaused}
-                >
-                    {actionLoading === 'resume' ? <Loader2 className="animate-spin" /> : <Play />}
-                    <span>恢复</span>
-                </Button>
+                {/* Pause / Resume Toggle */}
+                {mainStatus?.isPaused ? (
+                    <Button
+                        className="action-btn"
+                        variant="outline"
+                        onClick={() => handleAction('resume', api.resumeQueue)}
+                        disabled={!!actionLoading}
+                    >
+                        {actionLoading === 'resume' ? <Loader2 className="animate-spin" /> : <Play />}
+                        <span>恢复</span>
+                    </Button>
+                ) : (
+                    <Button
+                        className="action-btn"
+                        variant="outline"
+                        onClick={() => handleAction('pause', api.pauseQueue)}
+                        disabled={!!actionLoading || !hasActiveJobs}
+                    >
+                        {actionLoading === 'pause' ? <Loader2 className="animate-spin" /> : <Square />}
+                        <span>暂停</span>
+                    </Button>
+                )}
 
                 <Button
                     className="action-btn stop"
@@ -263,15 +276,28 @@ export function QueuePanel({ onClose }: QueuePanelProps) {
                         <span>启动任务</span>
                     </Button>
 
-                    <Button
-                        className="action-btn"
-                        variant="outline"
-                        onClick={() => handleAction(`${prefix}Resume`, resumeFn)}
-                        disabled={!!actionLoading || !queueStatus?.isPaused}
-                    >
-                        {actionLoading === `${prefix}Resume` ? <Loader2 className="animate-spin" /> : <Play />}
-                        <span>恢复</span>
-                    </Button>
+                    {/* Pause / Resume Toggle */}
+                    {queueStatus?.isPaused ? (
+                        <Button
+                            className="action-btn"
+                            variant="outline"
+                            onClick={() => handleAction(`${prefix}Resume`, resumeFn)}
+                            disabled={!!actionLoading}
+                        >
+                            {actionLoading === `${prefix}Resume` ? <Loader2 className="animate-spin" /> : <Play />}
+                            <span>恢复</span>
+                        </Button>
+                    ) : (
+                        <Button
+                            className="action-btn"
+                            variant="outline"
+                            onClick={() => handleAction(`${prefix}Pause`, pauseFn)}
+                            disabled={!!actionLoading || !hasActive}
+                        >
+                            {actionLoading === `${prefix}Pause` ? <Loader2 className="animate-spin" /> : <Square />}
+                            <span>暂停</span>
+                        </Button>
+                    )}
 
                     <Button
                         className="action-btn stop"

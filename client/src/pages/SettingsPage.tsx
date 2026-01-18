@@ -67,6 +67,16 @@ export const SettingsPage: React.FC = () => {
         }
     };
 
+    const handleProviderChange = (newProvider: string) => {
+        setProvider(newProvider);
+        // Reset model when switching providers to avoid ghost labels
+        if (newProvider === 'aliyun') {
+            setModel('qwen-plus');
+        } else {
+            setModel('');
+        }
+    };
+
     // Filter Popular Models
     const POPULAR_MODELS = [
         "google/gemini-3-pro-preview",
@@ -115,7 +125,7 @@ export const SettingsPage: React.FC = () => {
                                 name="provider"
                                 value="openrouter"
                                 checked={provider === 'openrouter'}
-                                onChange={(e) => setProvider(e.target.value)}
+                                onChange={(e) => handleProviderChange(e.target.value)}
                                 className="hidden"
                             />
                             <div className="provider-icon">
@@ -134,7 +144,7 @@ export const SettingsPage: React.FC = () => {
                                 name="provider"
                                 value="aliyun"
                                 checked={provider === 'aliyun'}
-                                onChange={(e) => setProvider(e.target.value)}
+                                onChange={(e) => handleProviderChange(e.target.value)}
                                 className="hidden"
                             />
                             <div className="provider-icon">

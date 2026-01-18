@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import { IAIService } from './IAIService';
 import { METADATA_SYSTEM_PROMPT, parseAIResponse, buildCuratorSystemPrompt } from './systemPrompt';
+import { repairJson, writeErrorLog, cleanMarkdown, logAIRequest, logAIResponse } from './aiUtils';
 import { config } from '../../config';
 import { systemRepo } from '../../db';
 import { MetadataJSON, CuratorResponse } from '../../types';
@@ -11,7 +12,7 @@ export class QwenService implements IAIService {
 
     constructor() {
         this.client = new OpenAI({
-            apiKey: config.ai.apiKey, // Maps to OPENAI_API_KEY compatible Qwen Key
+            apiKey: config.ai.apiKey,
             baseURL: config.ai.baseURL,
         });
     }
@@ -23,10 +24,7 @@ export class QwenService implements IAIService {
     }
 
     async generateMetadata(artist: string, title: string): Promise<MetadataJSON> {
-        // Construct JSON Array input as per new Prompt V5
-        const inputPayload = [
-            { id: "req_1", title, artist } // dummy ID for single request
-        ];
+        const inputPayload = [{ id: "req_1", title, artist }];
         const userPrompt = JSON.stringify(inputPayload);
         const currentModel = this.getModelName();
 
@@ -52,6 +50,10 @@ export class QwenService implements IAIService {
         const userPrompt = JSON.stringify(songs);
         const currentModel = this.getModelName();
 
+        logAIRequest('QwenService', currentModel, METADATA_SYSTEM_PROMPT, userPrompt);
+
+        let rawContent = '';
+
         try {
             const response = await this.client.chat.completions.create({
                 model: currentModel,
@@ -62,26 +64,12 @@ export class QwenService implements IAIService {
                 temperature: 0.3,
             });
 
-            const content = response.choices[0]?.message?.content || "";
-            // const parsed = parseAIResponse(content as any);
+            rawContent = response.choices[0]?.message?.content || "";
+            logAIResponse('QwenService', rawContent);
 
-            // parseAIResponse handles single object return by force, 
-            // we might need to adjust it to return raw array if used internally,
-            // or just cast it here because in V5 prompt we request ARRAY output.
-            // But `parseAIResponse` signature returns MetadataJSON (single).
-            // We need to fix `parseAIResponse` or handle array parsing here.
+            let cleaned = cleanMarkdown(rawContent);
+            cleaned = repairJson(cleaned);
 
-            // Let's look at parseAIResponse impl in systemPrompt.ts:
-            // It returns MetadataJSON.
-            // We need to update systemPrompt.ts to export a function that returns Array.
-            // For now, let's just parse manually here to unblock, or update systemPrompt.ts first?
-            // The prompt says "Output MUST be a raw JSON Array".
-            // parseAIResponse returns "parsed[0]" if array.
-
-            // To support batch, we should probably update `parseAIResponse` to be generic or create `parseAIBatchResponse`.
-            // Let's implement local parsing for batch for now to minimize ripple.
-
-            const cleaned = content.replace(/```json/g, '').replace(/```/g, '').trim();
             const JSON5 = (await import('json5')).default;
             const json = JSON5.parse(cleaned);
 
@@ -97,26 +85,32 @@ export class QwenService implements IAIService {
                 }];
             }
 
-        } catch (error) {
+        } catch (error: any) {
             console.error("[QwenService] Batch Metadata Generation Failed:", error);
+
+            await writeErrorLog({
+                serviceName: 'QwenService',
+                modelName: currentModel,
+                error,
+                userPrompt,
+                rawResponse: rawContent
+            });
+
             throw error;
         }
     }
+
     async rerankSongs(query: string, candidates: any[]): Promise<string[]> {
-        // Not implemented for Qwen yet, return original order
-        console.warn("[QwenService] Rerank not implemented, returning original order.");
-        return candidates.map(c => String(c.navidrome_id));
+        return this.curatePlaylist(query, candidates).then(res => res.tracks.map(t => t.songId));
     }
 
     async curatePlaylist(scenePrompt: string, candidates: any[], limit: number = 20, userProfile?: any): Promise<CuratorResponse> {
-        // 1. 压缩候选歌曲信息
         const candidatesCSV = candidates.map(c => {
             let tagsArray: string[] = [];
             try {
                 if (Array.isArray(c.tags)) tagsArray = c.tags;
                 else if (typeof c.tags === 'string') tagsArray = JSON.parse(c.tags);
-            } catch (e) { /* ignore parse error */ }
-
+            } catch (e) { /* ignore */ }
             return `ID:${c.navidrome_id}|T:${c.title}|A:${c.artist}|Mood:${c.mood || ''}|Tags:${(tagsArray || []).slice(0, 3).join(',')}`;
         }).join('\n');
 
@@ -129,7 +123,6 @@ ${candidatesCSV}
 
 Instructions:
 Filter and rank the best matches for this request.
-Output ONLY valid JSON (no markdown blocks).
 `;
         this.lastPrompts = { system: systemPrompt, user: userPrompt };
         const currentModel = this.getModelName();
@@ -142,21 +135,19 @@ Output ONLY valid JSON (no markdown blocks).
                     { role: 'system', content: systemPrompt },
                     { role: 'user', content: userPrompt }
                 ],
-                temperature: 0.7,
+                temperature: 0.7
             });
 
-            const content = response.choices[0]?.message?.content || "";
-            console.log("[QwenService] Raw AI Response:", content.substring(0, 100) + "...");
+            const text = response.choices[0]?.message?.content || "";
+            console.log("[QwenService] Raw AI Response:", text.substring(0, 100) + "...");
 
-            // 解析 JSON
-            const cleaned = content.replace(/```json/g, '').replace(/```/g, '').trim();
             const JSON5 = (await import('json5')).default;
+            const cleaned = cleanMarkdown(text);
             const json = JSON5.parse(cleaned);
 
             return json as CuratorResponse;
         } catch (error) {
             console.error("[QwenService] Curation Failed:", error);
-            // Fallback: 返回向量相似度最高的 N 首
             return {
                 scene: "Fallback Selection",
                 playlistName: "Vector Matches",
@@ -170,8 +161,7 @@ Output ONLY valid JSON (no markdown blocks).
     }
 
     async analyzeUserProfile(songs: any[]): Promise<any> {
-        console.warn("[QwenService] analyzeUserProfile not implemented.");
-        return {};
+        throw new Error("Not implemented for QwenService");
     }
 
     getLastPrompts() {

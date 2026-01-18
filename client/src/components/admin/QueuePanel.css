@@ -8,7 +8,7 @@
     background: var(--card);
     border-radius: 12px;
     border: 1px solid var(--border);
-    max-width: 600px;
+    /* max-width: 600px; */
     margin: 0 auto;
 }
 
@@ -177,9 +177,12 @@
 }
 
 @keyframes pulse {
-    0%, 100% {
+
+    0%,
+    100% {
         opacity: 1;
     }
+
     50% {
         opacity: 0.5;
     }

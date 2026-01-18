@@ -9,8 +9,10 @@ import {
     DialogDescription
 } from '../ui/dialog';
 import {
-    ChevronLeft, ChevronRight, FileJson, Activity, Music, Mic2, Search
+    ChevronLeft, ChevronRight, FileJson, Activity, Music, Mic2, Search,
+    Zap, Layers, Loader2
 } from 'lucide-react';
+import { useToast } from '../ui/toast';
 import './MetadataPanel.css';
 
 interface SongMetadata {
@@ -36,18 +38,93 @@ export function MetadataPanel() {
     const [pagination, setPagination] = useState({ total: 0, totalPages: 0, limit: 50 });
     const [selectedSong, setSelectedSong] = useState<SongMetadata | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
+    const [filter, setFilter] = useState<'all' | 'no_metadata' | 'no_vector'>('all');
+    const [selectedIds, setSelectedIds] = useState<string[]>([]);
+    const [processingBatch, setProcessingBatch] = useState(false);
+    const { toast } = useToast();
 
     const fetchSongs = async (p: number) => {
         setLoading(true);
         try {
-            const res = await api.getAdminSongs(p, 50);
+            const res = await api.getAdminSongs(p, 50, filter);
             setSongs(res.data);
             setPagination(res.pagination);
             setPage(p);
+            // Clear selection on page change? Optional. Let's keep it for now but maybe better to clear.
+            setSelectedIds([]);
         } catch (e) {
             console.error(e);
         } finally {
             setLoading(false);
+        }
+    };
+
+    // Reload when filter changes
+    useEffect(() => {
+        setPage(1);
+        fetchSongs(1);
+    }, [filter]);
+
+    // Handle Selection
+    const toggleSelection = (id: string) => {
+        setSelectedIds(prev => {
+            if (prev.includes(id)) {
+                return prev.filter(i => i !== id);
+            } else {
+                if (prev.length >= 20) {
+                    toast({ title: '选择限制', description: '最多只能同时处理 20 首歌曲 (API 限制)', variant: 'error' });
+                    return prev;
+                }
+                return [...prev, id];
+            }
+        });
+    };
+
+    const toggleSelectAllPage = () => {
+        if (selectedIds.length === songs.length) {
+            setSelectedIds([]);
+        } else {
+            // Limit to 20 even for select all? Or Select All on page?
+            // "Select All" on page might be > 20.
+            // Let's implement smart select: select up to 20 from current page.
+            const toSelect = songs.slice(0, 20).map(s => s.navidrome_id);
+            if (toSelect.length === 20 && songs.length > 20) {
+                // Toast or alert implicit
+            }
+            setSelectedIds(toSelect);
+        }
+    };
+
+    // Handle Batch Action
+    const handleBatchProcess = async (type: 'full' | 'metadata' | 'embedding') => {
+        if (selectedIds.length === 0) return;
+        setProcessingBatch(true);
+        try {
+            const res = await api.processImmediate(selectedIds, type);
+            if (res.success) {
+                // Refresh data
+                fetchSongs(page);
+                setSelectedIds([]);
+                toast({
+                    title: '处理完成',
+                    description: `成功处理 ${res.count} 首歌曲`,
+                    variant: 'success'
+                });
+            } else {
+                toast({
+                    title: '处理失败',
+                    description: res.message,
+                    variant: 'error'
+                });
+            }
+        } catch (e: any) {
+            toast({
+                title: '请求失败',
+                description: e.message,
+                variant: 'error'
+            });
+        } finally {
+            setProcessingBatch(false);
         }
     };
 
@@ -77,19 +154,75 @@ export function MetadataPanel() {
 
     return (
         <div className="metadata-panel">
+            {/* Processing Overlay */}
+            {processingBatch && (
+                <div className="processing-overlay">
+                    <div className="processing-content">
+                        <Loader2 className="w-8 h-8 animate-spin" />
+                        <span>正在处理中，请稍候...</span>
+                    </div>
+                </div>
+            )}
+
+            {/* Header with Search and Pagination */}
             {/* Header with Search and Pagination */}
             <div className="metadata-header">
-                <div className="metadata-search">
-                    <Search className="w-4 h-4" />
-                    <input
-                        type="text"
-                        placeholder="搜索歌曲或艺术家..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                    />
+                <div className="metadata-control-group">
+                    <div className="metadata-search">
+                        <Search className="w-4 h-4" />
+                        <input
+                            type="text"
+                            placeholder="搜索歌曲或艺术家..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                    </div>
+                    <select
+                        className="metadata-filter-select"
+                        value={filter}
+                        onChange={(e) => setFilter(e.target.value as any)}
+                    >
+                        <option value="all">全部歌曲</option>
+                        <option value="no_metadata">缺失元数据</option>
+                        <option value="no_vector">缺失向量</option>
+                    </select>
                 </div>
+
                 <div className="metadata-info">
-                    <span className="metadata-count">{pagination.total.toLocaleString()} 首歌曲</span>
+                    {selectedIds.length > 0 ? (
+                        <div className="batch-actions">
+                            <span className="selection-count">已选 {selectedIds.length} 首</span>
+                            <Button
+                                size="sm"
+                                variant="secondary"
+                                disabled={processingBatch}
+                                onClick={() => handleBatchProcess('full')}
+                                title="生成元数据并向量化"
+                            >
+                                <Zap className="w-3 h-3 mr-1" /> 全流程
+                            </Button>
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={processingBatch}
+                                onClick={() => handleBatchProcess('metadata')}
+                                title="仅生成元数据"
+                            >
+                                <FileJson className="w-3 h-3 mr-1" /> 仅元数据
+                            </Button>
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={processingBatch}
+                                onClick={() => handleBatchProcess('embedding')}
+                                title="仅生成向量"
+                            >
+                                <Layers className="w-3 h-3 mr-1" /> 仅向量
+                            </Button>
+                        </div>
+                    ) : (
+                        <span className="metadata-count">{pagination.total.toLocaleString()} 首歌曲</span>
+                    )}
                 </div>
             </div>
 
@@ -98,7 +231,16 @@ export function MetadataPanel() {
                 <table className="metadata-table">
                     <thead>
                         <tr>
-                            <th style={{ width: '40px' }}></th>
+                            <th style={{ width: '40px', textAlign: 'center' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={selectedIds.length > 0 && selectedIds.length === Math.min(songs.length, 20)}
+                                    // Logic for 'checked' is tricky with limit. 
+                                    // Let's just make it uncontrolled or specific behavior: 
+                                    // Click -> Select up to 20. Click again -> Deselect all.
+                                    onChange={toggleSelectAllPage}
+                                />
+                            </th>
                             <th>标题</th>
                             <th>艺术家</th>
                             <th>专辑</th>
@@ -123,10 +265,23 @@ export function MetadataPanel() {
                                 return (
                                     <tr
                                         key={song.navidrome_id}
-                                        className={`metadata-row ${hasMetadata ? 'has-data' : ''}`}
-                                        onClick={() => setSelectedSong(song)}
+                                        className={`metadata-row ${hasMetadata ? 'has-data' : ''} ${selectedIds.includes(song.navidrome_id) ? 'selected' : ''}`}
+                                        onClick={(e) => {
+                                            // Handle row click for details, but ignore if clicking checkbox
+                                            // Or maybe row click selects? Let's keep row click for details for now
+                                            // unless we want shift-click.
+                                            // Simple: Click selects? No, click opens details usually.
+                                            // Let's keep existing behavior: Click -> Details.
+                                            setSelectedSong(song);
+                                        }}
                                     >
-                                        <td className="cell-index">{(page - 1) * 50 + idx + 1}</td>
+                                        <td className="cell-check" onClick={(e) => e.stopPropagation()}>
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedIds.includes(song.navidrome_id)}
+                                                onChange={() => toggleSelection(song.navidrome_id)}
+                                            />
+                                        </td>
                                         <td className="cell-title">{song.title}</td>
                                         <td className="cell-artist">{song.artist}</td>
                                         <td className="cell-album">{song.album || '-'}</td>

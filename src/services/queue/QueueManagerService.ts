@@ -259,9 +259,18 @@ class QueueManagerService {
                 setWorkerInstance(null);
             }
 
+            // 重置数据库中被中断的任务状态（PROCESSING -> PENDING）
+            // 防止产生脏数据
+            const { metadataRepo, initDB } = await import('../../db');
+            initDB();
+            const resetMetadata = metadataRepo.resetProcessingStatus();
+            const resetEmbedding = metadataRepo.resetEmbeddingStatus();
+
+            this.pipelineState = 'idle';
+
             return {
                 success: true,
-                message: `已停止队列并清除 ${clearedJobs} 个任务`,
+                message: `已停止队列并清除 ${clearedJobs} 个任务，重置 ${resetMetadata + resetEmbedding} 条数据库记录`,
                 clearedJobs
             };
         } catch (error: any) {

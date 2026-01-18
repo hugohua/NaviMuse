@@ -53,18 +53,26 @@ async function main() {
     console.log('[Embedding Export] 初始化数据库...');
     initDB();
 
+    const incremental = args.includes('--incremental');
+
     // 查询已有元数据的歌曲 (analysis_json 不为空)
-    // Note: 我们导出所有有元数据的歌曲，而不是检查 song_vectors 表
-    // 因为 song_vectors 表可能在向量化之前不存在
+    // Note: 我们导出所有有元数据的歌曲
+    // 如果开启 --incremental，则排除 vec_songs 中已存在的 (通过 rowid 关联)
     let query = `
         SELECT 
-            navidrome_id, 
-            title, 
-            artist,
-            analysis_json
-        FROM smart_metadata
-        WHERE analysis_json IS NOT NULL
+            s.navidrome_id, 
+            s.title, 
+            s.artist,
+            s.analysis_json
+        FROM smart_metadata s
+        WHERE s.analysis_json IS NOT NULL
     `;
+
+    if (incremental) {
+        console.log('[Embedding Export] 增量模式: 正在排除已在向量表中的歌曲...');
+        query += ` AND NOT EXISTS (SELECT 1 FROM vec_songs v WHERE v.song_id = s.rowid) `;
+    }
+
     if (limit) {
         query += ` LIMIT ${limit}`;
     }

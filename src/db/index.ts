@@ -440,6 +440,39 @@ export const metadataRepo = {
         db.prepare(`UPDATE smart_metadata SET embedding_status = ? WHERE navidrome_id = ?`).run(status, id);
     },
 
+    /**
+     * 重置所有 PROCESSING 状态的记录为 PENDING
+     * 用于队列被强制清空时，防止产生脏数据
+     */
+    resetProcessingStatus: (): number => {
+        const result = db.prepare(`
+            UPDATE smart_metadata 
+            SET processing_status = 'PENDING' 
+            WHERE processing_status = 'PROCESSING'
+        `).run();
+        const count = result.changes;
+        if (count > 0) {
+            console.log(`[DB] Reset ${count} PROCESSING records back to PENDING`);
+        }
+        return count;
+    },
+
+    /**
+     * 重置所有 PROCESSING 状态的 embedding_status 为 PENDING
+     */
+    resetEmbeddingStatus: (): number => {
+        const result = db.prepare(`
+            UPDATE smart_metadata 
+            SET embedding_status = 'PENDING' 
+            WHERE embedding_status = 'PROCESSING'
+        `).run();
+        const count = result.changes;
+        if (count > 0) {
+            console.log(`[DB] Reset ${count} embedding PROCESSING records back to PENDING`);
+        }
+        return count;
+    },
+
     saveBatchAnalysis: (updates: { songId: string, metaUpdate: any, vector?: number[] }[]) => {
         const updateMeta = db.prepare(`
             UPDATE smart_metadata SET
@@ -494,6 +527,9 @@ export const metadataRepo = {
                     if (rowIdRes) {
                         const buffer = new Float32Array(item.vector);
                         insertVectorStmt.run({ song_id: BigInt(rowIdRes.rowid), embedding: buffer });
+
+                        // Also mark embedding status as COMPLETED
+                        db.prepare(`UPDATE smart_metadata SET embedding_status = 'COMPLETED' WHERE navidrome_id = ?`).run(item.songId);
                     }
                 }
             }
@@ -503,13 +539,38 @@ export const metadataRepo = {
     },
 
     // Admin / Inspection
-    getSongCount: (): number => {
-        const result = db.prepare('SELECT COUNT(*) as count FROM smart_metadata').get() as { count: number };
+    getSongCount: (filter?: 'all' | 'no_metadata' | 'no_vector'): number => {
+        let sql = 'SELECT COUNT(*) as count FROM smart_metadata';
+        if (filter === 'no_metadata') {
+            sql += " WHERE analysis_json IS NULL OR analysis_json = ''";
+        } else if (filter === 'no_vector') {
+            // Check missing embedding or pending embedding status
+            sql += " WHERE (embedding_status IS NULL OR embedding_status = 'PENDING') AND analysis_json IS NOT NULL";
+        }
+
+        const result = db.prepare(sql).get() as { count: number };
         return result.count;
     },
 
-    getPaginatedSongs: (limit: number, offset: number): SongMetadata[] => {
-        return db.prepare('SELECT * FROM smart_metadata ORDER BY last_analyzed DESC LIMIT ? OFFSET ?').all(limit, offset) as SongMetadata[];
+    getPaginatedSongs: (limit: number, offset: number, filter?: 'all' | 'no_metadata' | 'no_vector'): SongMetadata[] => {
+        let sql = 'SELECT * FROM smart_metadata';
+
+        if (filter === 'no_metadata') {
+            sql += " WHERE analysis_json IS NULL OR analysis_json = ''";
+        } else if (filter === 'no_vector') {
+            sql += " WHERE (embedding_status IS NULL OR embedding_status = 'PENDING') AND analysis_json IS NOT NULL";
+        }
+
+        sql += ' ORDER BY last_analyzed DESC LIMIT ? OFFSET ?';
+
+        return db.prepare(sql).all(limit, offset) as SongMetadata[];
+    },
+
+    getSongsByIds: (ids: string[]): { navidrome_id: string, title: string, artist: string, analysis_json?: string }[] => {
+        if (ids.length === 0) return [];
+        const placeholders = ids.map(() => '?').join(',');
+        const sql = `SELECT navidrome_id, title, artist, analysis_json FROM smart_metadata WHERE navidrome_id IN (${placeholders})`;
+        return db.prepare(sql).all(...ids) as any[];
     }
 };
 

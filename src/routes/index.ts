@@ -49,6 +49,7 @@ router.post('/queue/embedding-only/start', QueueController.startEmbeddingOnly);
 router.post('/queue/embedding-only/pause', QueueController.pauseEmbeddingOnly);
 router.post('/queue/embedding-only/resume', QueueController.resumeEmbeddingOnly);
 router.post('/queue/embedding-only/stop', QueueController.stopEmbeddingOnly);
+router.post('/queue/immediate', QueueController.immediate);
 
 // --- Admin / Inspection ---
 import { AdminController } from '../controllers/admin.controller';
