@@ -58,11 +58,6 @@
     cursor: pointer;
 }
 
-[data-theme="light"] .sidebar-tab {
-    /* background: transparent;
-    border: 1px solid var(--border);
-    color: var(--muted-foreground); */
-}
 
 [data-theme="light"] .sidebar-tab:hover {
     background: var(--accent);
@@ -185,6 +180,7 @@
     gap: 0.25rem;
     opacity: 0;
     transition: opacity var(--transition-base);
+    flex-shrink: 0;
 }
 
 .playlist-item:hover .playlist-actions {

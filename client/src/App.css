@@ -28,7 +28,7 @@
 /* Sidebar */
 .sidebar {
   display: none;
-  width: 18rem;
+  width: 22rem;
   flex-shrink: 0;
   background: var(--card);
   backdrop-filter: blur(40px);

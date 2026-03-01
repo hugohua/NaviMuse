@@ -241,7 +241,7 @@ export const SettingsPage: React.FC = () => {
                             className="settings-select"
                         >
                             <option value="gemini-3.1-pro-high">gemini-3.1-pro-high</option>
-                            <option value="gemini-3-flash">gemini-3-flash)</option>
+                            <option value="gemini-3-flash">gemini-3-flash</option>
                         </select>
                     )}
 
