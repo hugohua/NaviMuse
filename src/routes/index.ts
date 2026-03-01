@@ -34,6 +34,7 @@ router.post('/profile/analyze', CuratorController.analyzeProfile);
 
 // --- Playlist Management ---
 router.get('/playlists', PlaylistController.getAll);
+router.post('/playlists', PlaylistController.create);
 router.get('/playlists/:id', PlaylistController.getOne);
 router.delete('/playlists/:id', PlaylistController.delete);
 

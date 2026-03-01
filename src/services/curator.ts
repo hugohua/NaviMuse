@@ -36,8 +36,8 @@ export class CuratorService {
      * @param mode 探索模式 (default | familiar | fresh)
      * @param userProfilePrecalced 前端传入的预计算用户画像 (可选)
      */
-    async curate(scene: string, mode: DiscoveryMode = 'default', userProfilePrecalced?: import('../types').UserProfile): Promise<CuratorResponse> {
-        console.log(`[Curator] Starting flow for scene: "${scene}" (Mode: ${mode})`);
+    async curate(scene: string, mode: DiscoveryMode = 'default', userProfilePrecalced?: import('../types').UserProfile, useAI: boolean = true): Promise<CuratorResponse> {
+        console.log(`[Curator] Starting flow for scene: "${scene}" (Mode: ${mode}, AI: ${useAI})`);
 
         // Map Frontend DiscoveryMode to Hybrid Logic
         // CuratorService acts as a facade/controller here
@@ -48,8 +48,8 @@ export class CuratorService {
         console.log('[Curator] Delegating to HybridSearchService...');
 
         const hybridResult = await hybridSearchService.search(scene, {
-            candidateLimit: mode === 'fresh' ? 300 : (mode === 'familiar' ? 100 : 150),
             finalLimit: 20,
+            useAI: useAI,
             userId: 'admin',
             mode: mode
         });

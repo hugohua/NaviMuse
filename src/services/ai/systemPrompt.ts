@@ -119,6 +119,8 @@ ${userContextSection}
 2. **Quality**: If fewer songs fit, return fewer. Do NOT force fit.
 3. **Reasoning**: Provide a short, witty reason (in Chinese) for each track.
 4. **Variety**: Balance the flow (unless requested otherwise).
+5. **Artist Diversity**: Do NOT select more than 3 songs from the same artist. Spread across different artists.
+6. **Genre Coverage**: Ensure at least 2 different mood-clusters or genres are represented in the final selection.
 
 # Output JSON Structure (Strict)
 {

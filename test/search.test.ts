@@ -46,7 +46,7 @@ describe('Hybrid Search Integration', () => {
             last_updated: new Date().toISOString(), hash: 'hash1'
         });
         metadataRepo.updateAnalysis('1', { description: 'Upbeat piano', tags: ['happy'], mood: 'Happy', is_instrumental: true });
-        metadataRepo.saveVector(1, new Array(768).fill(0.1));
+        metadataRepo.saveVector(1, new Array(1024).fill(0.1));
 
         // Song 2: Sad Rock (Vocal)
         metadataRepo.saveBasicInfo({
@@ -55,7 +55,7 @@ describe('Hybrid Search Integration', () => {
             last_updated: new Date().toISOString(), hash: 'hash2'
         });
         metadataRepo.updateAnalysis('2', { description: 'Melancholic guitar', tags: ['sad'], mood: 'Sad', is_instrumental: false });
-        metadataRepo.saveVector(2, new Array(768).fill(0.9)); // Different vector
+        metadataRepo.saveVector(2, new Array(1024).fill(0.9)); // Different vector
 
         const searchModule = await import('../src/services/search/SearchService');
         searchService = searchModule.searchService;
@@ -63,7 +63,7 @@ describe('Hybrid Search Integration', () => {
 
     it('should recall and filter correctly', async () => {
         // Query clearly matches Song 2 (closer to 0.9)
-        mockEmbed.mockResolvedValue(new Array(768).fill(0.9));
+        mockEmbed.mockResolvedValue(new Array(1024).fill(0.9));
 
         // Mock rerank to just return IDs as is for this test
         mockRerank.mockResolvedValue(['2', '1']);
@@ -79,16 +79,41 @@ describe('Hybrid Search Integration', () => {
         expect(results[0].title).toBe('Happy Song');
     });
 
-    it('should rerank results via AI', async () => {
-        mockEmbed.mockResolvedValue(new Array(768).fill(0.1));
+    it('should rerank results via AI by default or when ai_mode is true', async () => {
+        mockEmbed.mockResolvedValue(new Array(1024).fill(0.1));
 
         // Force Rerank to reverse the order (promote Song 2 over Song 1 even if Song 1 is closer)
         // Note: In our mock vector setup, Song 1 (0.1) is closer to query (0.1).
         // Let's assume AI thinks Song 2 is better for some reason.
         mockRerank.mockResolvedValue(['2', '1']);
 
-        const results = await searchService.hybridSearch("Test Query");
-        expect(results[0].navidrome_id).toBe('2');
-        expect(results[1].navidrome_id).toBe('1');
+        // Test with default ai_mode (undefined)
+        const resultsDefault = await searchService.hybridSearch("Test Query");
+        expect(resultsDefault[0].navidrome_id).toBe('2');
+        expect(resultsDefault[1].navidrome_id).toBe('1');
+        expect(mockRerank).toHaveBeenCalled();
+
+        mockRerank.mockClear();
+
+        // Test with explicit ai_mode: true
+        const resultsTrue = await searchService.hybridSearch("Test Query", { ai_mode: true });
+        expect(resultsTrue[0].navidrome_id).toBe('2');
+        expect(resultsTrue[1].navidrome_id).toBe('1');
+        expect(mockRerank).toHaveBeenCalled();
+    });
+
+    it('should bypass AI rerank when ai_mode is false', async () => {
+        mockEmbed.mockResolvedValue(new Array(1024).fill(0.1));
+        mockRerank.mockClear();
+
+        // With ai_mode false, it should return the raw recall from the DB.
+        // Assuming the DB returns them in some order (often distance based, but here we just check it doesn't call rerank).
+        const results = await searchService.hybridSearch("Test Query", { ai_mode: false });
+
+        // Assert that rerank was never called
+        expect(mockRerank).not.toHaveBeenCalled();
+
+        // Assert we still got results back
+        expect(results.length).toBeGreaterThan(0);
     });
 });

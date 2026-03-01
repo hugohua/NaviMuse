@@ -26,6 +26,11 @@ export const config = {
         modelList: (getEnv('OPENAI_MODEL_LIST', false) || '').split(',').filter(Boolean),
         temperature: parseFloat(process.env.AI_TEMPERATURE || '0.5'),
     },
+    etl: {
+        apiKey: getEnv('ETL_API_KEY', false) || getEnv('OPENAI_API_KEY', false),
+        baseURL: getEnv('ETL_BASE_URL', false) || 'http://antigravity-manager:8045/v1',
+        model: getEnv('ETL_MODEL_NAME', false) || 'gemini-3-flash',
+    },
     app: {
         port: parseInt(process.env.PORT || '3000', 10),
         profileSampleSize: 500, // Number of songs to analyze for user profile

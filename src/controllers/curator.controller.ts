@@ -6,7 +6,7 @@ export class CuratorController {
     // POST /api/generate
     static async generate(req: Request, res: Response, next: NextFunction) {
         try {
-            const { prompt, mode, userProfile } = req.body;
+            const { prompt, mode, userProfile, ai_mode } = req.body;
 
             if (!prompt) {
                 res.status(400).json({ error: 'Prompt is required' });
@@ -15,9 +15,10 @@ export class CuratorController {
 
             // Default to 'default' mode if not provided
             const targetMode = mode || 'default';
+            const useAI = ai_mode !== false; // Default to true
 
             // Pass userProfile to curator service if available
-            const result = await curatorService.curate(prompt, targetMode, userProfile);
+            const result = await curatorService.curate(prompt, targetMode, userProfile, useAI);
 
             res.json({ success: true, data: result });
         } catch (error) {

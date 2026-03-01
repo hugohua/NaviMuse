@@ -24,7 +24,7 @@ export interface IAIService {
      * @param limit Target number of songs
      * @param userProfile Optional user persona context
      */
-    curatePlaylist(scenePrompt: string, candidates: any[], limit?: number, userProfile?: any): Promise<CuratorResponse>;
+    curatePlaylist(scenePrompt: string, candidates: any[], limit?: number, userProfile?: any, options?: { temperature?: number }): Promise<CuratorResponse>;
     analyzeUserProfile(songs: any[]): Promise<UserProfile>;
     getLastPrompts?(): { system: string; user: string };
 }

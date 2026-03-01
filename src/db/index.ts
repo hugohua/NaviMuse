@@ -580,6 +580,86 @@ export const metadataRepo = {
         const placeholders = ids.map(() => '?').join(',');
         const sql = `SELECT navidrome_id, title, artist, analysis_json FROM smart_metadata WHERE navidrome_id IN (${placeholders})`;
         return db.prepare(sql).all(...ids) as any[];
+    },
+
+    /**
+     * 属性召回通道：基于结构化字段做 SQL 硬过滤
+     * 支持排除已有 ID 集合实现通道互斥
+     */
+    searchByAttributes: (filters: {
+        energy_range?: [number, number],
+        mood?: string,
+        tempo_vibe?: string,
+        spectrum?: string,
+        language?: string,
+        scene_tag?: string,
+        timbre_texture?: string,
+    }, limit: number, excludeIds: string[] = []): SongMetadata[] => {
+        const conditions: string[] = ['last_analyzed IS NOT NULL'];
+        const params: any[] = [];
+
+        if (filters.energy_range) {
+            conditions.push('energy_level >= ? AND energy_level <= ?');
+            params.push(filters.energy_range[0], filters.energy_range[1]);
+        }
+        if (filters.mood) {
+            conditions.push('mood LIKE ?');
+            params.push(`%${filters.mood}%`);
+        }
+        if (filters.tempo_vibe) {
+            conditions.push('tempo_vibe = ?');
+            params.push(filters.tempo_vibe);
+        }
+        if (filters.spectrum) {
+            conditions.push('spectrum = ?');
+            params.push(filters.spectrum);
+        }
+        if (filters.language) {
+            conditions.push('language = ?');
+            params.push(filters.language);
+        }
+        if (filters.scene_tag) {
+            conditions.push('scene_tag LIKE ?');
+            params.push(`%${filters.scene_tag}%`);
+        }
+        if (filters.timbre_texture) {
+            conditions.push('timbre_texture = ?');
+            params.push(filters.timbre_texture);
+        }
+
+        // 排除已有 ID
+        if (excludeIds.length > 0) {
+            const excludePlaceholders = excludeIds.map(() => '?').join(',');
+            conditions.push(`navidrome_id NOT IN (${excludePlaceholders})`);
+            params.push(...excludeIds);
+        }
+
+        const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+        const sql = `SELECT * FROM smart_metadata ${whereClause} ORDER BY visual_popularity DESC LIMIT ?`;
+        params.push(limit);
+
+        return db.prepare(sql).all(...params) as SongMetadata[];
+    },
+
+    /**
+     * 随机探索通道：从全库中随机抽样
+     * 支持排除已有 ID 集合实现通道互斥
+     */
+    getRandomSongs: (limit: number, excludeIds: string[] = []): SongMetadata[] => {
+        const conditions: string[] = ['last_analyzed IS NOT NULL'];
+        const params: any[] = [];
+
+        if (excludeIds.length > 0) {
+            const excludePlaceholders = excludeIds.map(() => '?').join(',');
+            conditions.push(`navidrome_id NOT IN (${excludePlaceholders})`);
+            params.push(...excludeIds);
+        }
+
+        const whereClause = `WHERE ${conditions.join(' AND ')}`;
+        const sql = `SELECT * FROM smart_metadata ${whereClause} ORDER BY RANDOM() LIMIT ?`;
+        params.push(limit);
+
+        return db.prepare(sql).all(...params) as SongMetadata[];
     }
 };
 

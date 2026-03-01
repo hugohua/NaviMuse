@@ -40,7 +40,6 @@ const DialogContent = React.forwardRef<
             {children}
             <DialogPrimitive.Close className="dialog-close-btn">
                 <X className="h-4 w-4" />
-                <span className="sr-only">Close</span>
             </DialogPrimitive.Close>
         </DialogPrimitive.Content>
     </DialogPortal>
@@ -63,7 +62,7 @@ const DialogFooter = ({
     ...props
 }: React.HTMLAttributes<HTMLDivElement>) => (
     <div
-        className={cn("dialog-footer", className)}
+        className={cn("dialog-footer mt-6 flex", className)}
         {...props}
     />
 )

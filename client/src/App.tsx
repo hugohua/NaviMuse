@@ -96,7 +96,7 @@ function AppContent() {
     setSelectedTags(next);
   };
 
-  const generate = async (inputPrompt: string = '') => {
+  const generate = async (inputPrompt: string = '', aiMode: boolean = true) => {
     // If inputPrompt is empty (e.g. from tags only), check if we have tags
     const activePrompt = inputPrompt || searchInput;
     const combinedPrompt = activePrompt; // Now purely relying on the input box content which includes tags
@@ -112,12 +112,12 @@ function AppContent() {
     }
 
     setLoading(true);
-    setStatusText(`正在[${getModeName(mode)}]下为您生成...`);
+    setStatusText(aiMode ? `正在[${getModeName(mode)}]下为您生成...` : `快速搜索中...`);
     setResult(null);
 
     try {
       // Pass userProfile if exists
-      const data = await api.generatePlaylist(combinedPrompt, mode, userProfile || undefined);
+      const data = await api.generatePlaylist(combinedPrompt, mode, userProfile || undefined, aiMode);
       setResult(data);
       setStatusText('Ready');
       // Refresh playlist list

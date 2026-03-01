@@ -24,6 +24,10 @@ interface AudioPlayerContextType {
     seek: (pos: number) => void;
     setVolume: (vol: number) => void;
     playAtIndex: (index: number) => void;
+    addToQueue: (song: Song) => void;
+    addManyToQueue: (songs: Song[]) => void;
+    removeFromQueue: (index: number) => void;
+    clearQueue: () => void;
     toggleStar: () => Promise<void>;
     togglePlayMode: () => void;
 }
@@ -220,6 +224,85 @@ export const AudioPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
         }
     }, [queue.length]);
 
+    const addToQueue = useCallback((song: Song) => {
+        setQueue(prev => {
+            // Check if song already exists to prevent duplicates (optional, but requested often)
+            if (prev.some(s => s.id === song.id)) return prev;
+            return [...prev, song];
+        });
+
+        // If queue was empty, play it immediately
+        setCurrentIndex(prev => {
+            if (prev === -1) {
+                // Return 0 so it starts playing the newly added song naturally
+                return 0;
+            }
+            return prev;
+        });
+    }, []);
+
+    const addManyToQueue = useCallback((songs: Song[]) => {
+        setQueue(prev => {
+            const existingIds = new Set(prev.map(s => s.id));
+            const newSongs = songs.filter(s => !existingIds.has(s.id));
+            return [...prev, ...newSongs];
+        });
+
+        // If queue was empty before adding these, start playing the first of the newly added
+        setCurrentIndex(prev => {
+            if (prev === -1 && songs.length > 0) {
+                return 0;
+            }
+            return prev;
+        });
+    }, []);
+
+    const clearQueue = useCallback(() => {
+        // Stop current playback
+        if (howlRef.current) {
+            howlRef.current.stop();
+            howlRef.current.unload();
+            howlRef.current = null;
+        }
+        setQueue([]);
+        setCurrentIndex(-1);
+        setIsPlaying(false);
+        setCurrentPlaylistId(null);
+    }, []);
+
+    const removeFromQueue = useCallback((indexToRemove: number) => {
+        setQueue(prevQueue => {
+            const newQueue = [...prevQueue];
+            newQueue.splice(indexToRemove, 1);
+
+            // Adjust currentIndex based on the removal
+            setCurrentIndex(prevIndex => {
+                if (prevIndex === indexToRemove) {
+                    // We removed the currently playing song. 
+                    // Stop it and play the next one in line (which is now at indexToRemove)
+                    if (howlRef.current) {
+                        howlRef.current.stop();
+                        howlRef.current.unload();
+                        howlRef.current = null;
+                        setIsPlaying(false);
+                    }
+                    // If we removed the last item, reset to -1
+                    if (newQueue.length === 0) return -1;
+                    // If we removed the last item in the queue, drop back one
+                    if (indexToRemove >= newQueue.length) return 0; // Wrap around to first
+
+                    return indexToRemove; // Keep same index, but next song has taken this slot
+                } else if (prevIndex > indexToRemove) {
+                    // We removed a song before the current one, shift index down
+                    return prevIndex - 1;
+                }
+                return prevIndex;
+            });
+
+            return newQueue;
+        });
+    }, []);
+
     const toggleStar = useCallback(async () => {
         if (!currentSong || isStarring) return;
         setIsStarring(true);
@@ -280,12 +363,16 @@ export const AudioPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
         seek,
         setVolume,
         playAtIndex,
+        addToQueue,
+        addManyToQueue,
+        removeFromQueue,
+        clearQueue,
         toggleStar,
         togglePlayMode
     }), [
         currentSong, isPlaying, queue, volume, currentPlaylistId,
         isStarring, playMode, play, pause, playSong, playPlaylist,
-        handleNext, prev, seek, setVolume, playAtIndex, toggleStar, togglePlayMode
+        handleNext, prev, seek, setVolume, playAtIndex, addToQueue, addManyToQueue, removeFromQueue, clearQueue, toggleStar, togglePlayMode
     ]);
 
     // Memoize progress state (updates frequently)

@@ -13,6 +13,20 @@ export class PlaylistController {
         }
     }
 
+    // POST /api/playlists
+    static async create(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { name, songIds } = req.body;
+            if (!name || !songIds || !Array.isArray(songIds)) {
+                return res.status(400).json({ error: 'Name and songIds array are required' });
+            }
+            await navidromeClient.createPlaylist(name, songIds);
+            res.json({ success: true });
+        } catch (error) {
+            next(error);
+        }
+    }
+
     // GET /api/playlists/:id
     static async getOne(req: Request, res: Response, next: NextFunction) {
         try {

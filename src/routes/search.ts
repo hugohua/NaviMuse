@@ -21,9 +21,18 @@ router.get('/', async (req, res, next) => {
             else if (val === 'false' || val === '0') is_instrumental = false;
         }
 
+        // Parse 'ai_mode'. Default is true but backend defaults to true anyway if undefined.
+        let ai_mode: boolean | undefined = undefined;
+        if (req.query.ai_mode !== undefined) {
+            const val = String(req.query.ai_mode).toLowerCase();
+            if (val === 'true' || val === '1') ai_mode = true;
+            else if (val === 'false' || val === '0') ai_mode = false;
+        }
+
         const results = await searchService.hybridSearch(query, {
             limit,
-            is_instrumental
+            is_instrumental,
+            ai_mode
         });
 
         res.json(results);

@@ -52,11 +52,11 @@ export const api = {
     /**
      * Generate Playlist
      */
-    generatePlaylist: async (prompt: string, mode: DiscoveryMode, userProfile?: UserProfile): Promise<CuratorResponse> => {
+    generatePlaylist: async (prompt: string, mode: DiscoveryMode, userProfile?: UserProfile, aiMode: boolean = true): Promise<CuratorResponse> => {
         const res = await fetch('/api/generate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt, mode, userProfile })
+            body: JSON.stringify({ prompt, mode, userProfile, ai_mode: aiMode })
         });
 
         const json: ApiResponse = await res.json();
@@ -66,6 +66,23 @@ export const api = {
         }
 
         return json.data;
+    },
+
+    /**
+     * Search metadata
+     */
+    search: async (query: string, options?: { limit?: number, instrumental?: boolean, ai_mode?: boolean }): Promise<any[]> => {
+        const params = new URLSearchParams();
+        params.append('q', query);
+        if (options?.limit) params.append('limit', String(options.limit));
+        if (options?.instrumental !== undefined) params.append('instrumental', String(options.instrumental));
+        if (options?.ai_mode !== undefined) params.append('ai_mode', String(options.ai_mode));
+
+        const res = await fetch(`/api/search?${params.toString()}`);
+        if (!res.ok) {
+            throw new Error(`Failed to search: ${res.statusText}`);
+        }
+        return res.json();
     },
 
     /**
@@ -142,6 +159,20 @@ export const api = {
         const json = await res.json();
         if (!json.success) {
             throw new Error(json.error || 'Failed to unstar song');
+        }
+    },
+
+    createPlaylist: async (name: string, songIds: string[]): Promise<void> => {
+        const res = await fetch('/api/playlists', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ name, songIds })
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            throw new Error(json.error || 'Failed to create playlist');
         }
     },
 

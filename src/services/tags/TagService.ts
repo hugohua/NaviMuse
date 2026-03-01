@@ -2,7 +2,7 @@ import path from 'path';
 import fs from 'fs';
 import OpenAI from 'openai';
 import { db } from '../../db';
-import { TagCategory } from '../../data/tags';
+import { TagCategory, manualTagCategories } from '../../data/tags';
 import { navidromeClient } from '../navidrome';
 import { config } from '../../config';
 import dotenv from 'dotenv'; // Ensure env is loaded if running standalone
@@ -54,16 +54,19 @@ export class TagService {
             systemTags = generatedTags as unknown as TagCategory[];
         }
 
-        // 2. Get User Artist Tags (Dynamic)
+        // 2. Prepend Manual Vibe Tags (场景/氛围 + 风格/流派)
+        const allTags: TagCategory[] = [...manualTagCategories, ...systemTags];
+
+        // 3. Get User Artist Tags (Dynamic)
         // Only if Navidrome is configured
         if (config.navidrome.url) {
             const userArtistTags = await this.getUserArtistTags();
             if (userArtistTags) {
-                systemTags.push(userArtistTags);
+                allTags.push(userArtistTags);
             }
         }
 
-        return systemTags;
+        return allTags;
     }
 
     private seedDatabase(tags: TagCategory[]) {

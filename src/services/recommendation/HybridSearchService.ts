@@ -2,11 +2,30 @@
 import { EmbeddingService } from '../ai/EmbeddingService';
 import { AIFactory } from '../ai/AIFactory';
 import { IAIService } from '../ai/IAIService';
-import { metadataRepo, userProfileRepo } from '../../db';
+import { metadataRepo, userProfileRepo, SongMetadata } from '../../db';
 import { userProfileService } from './UserProfileService';
 import { config } from '../../config';
 import fs from 'fs';
 import path from 'path';
+
+/**
+ * 多路召回参数配置 (按 Mode 差异化)
+ */
+interface RecallConfig {
+    vectorLimit: number;
+    attributeLimit: number;
+    randomLimit: number;
+    starredInjectionRatio: number; // 红心注入上限比例
+    mmrLambda: number; // 0=纯多样性, 1=纯相关性
+    mmrTargetCount: number; // MMR 筛出的目标数量
+    temperature: number; // LLM 策展 temperature
+}
+
+const MODE_CONFIGS: Record<string, RecallConfig> = {
+    default: { vectorLimit: 80, attributeLimit: 30, randomLimit: 20, starredInjectionRatio: 0.10, mmrLambda: 0.5, mmrTargetCount: 100, temperature: 1 },
+    familiar: { vectorLimit: 80, attributeLimit: 20, randomLimit: 0, starredInjectionRatio: 0.20, mmrLambda: 0.7, mmrTargetCount: 100, temperature: 1 },
+    fresh: { vectorLimit: 100, attributeLimit: 40, randomLimit: 40, starredInjectionRatio: 0.00, mmrLambda: 0.3, mmrTargetCount: 100, temperature: 1 },
+};
 
 export class HybridSearchService {
     private embeddingService: EmbeddingService;
@@ -16,114 +35,132 @@ export class HybridSearchService {
     }
 
     /**
-     * 执行混合搜索
-     * @param query 用户查询
-     * @param options 配置选项
+     * 执行混合搜索 (多路召回 + MMR + LLM 策展)
      */
     async search(query: string, options: {
         candidateLimit?: number,
         finalLimit?: number,
         useAI?: boolean,
-        userId?: string, // New: Optional User ID for personalization
-        mode?: 'default' | 'familiar' | 'fresh' // Add mode
+        userId?: string,
+        mode?: 'default' | 'familiar' | 'fresh'
     } = {}) {
-        const candidateLimit = options.candidateLimit || 150; // Increased default from 50
         const finalLimit = options.finalLimit || 20;
         const useAI = options.useAI !== false;
         const userId = options.userId;
-        const mode = options.mode || 'default'; // Default mode
+        const mode = options.mode || 'default';
+        const modeConfig = MODE_CONFIGS[mode] || MODE_CONFIGS.default;
 
         console.log(`[HybridSearch] Query: "${query}" (User: ${userId || 'Anonymous'}, Mode: ${mode})`);
 
-        // 1. Vector Retrieval (Rational Stage)
-        // Convert query to vector
-        let queryVector = await this.embeddingService.embed(query);
+        // ============ Stage -1: Query 预处理 ============
+        const normalizedQuery = this.normalizeQuery(query);
+        if (normalizedQuery !== query) {
+            console.log(`[HybridSearch] Normalized query: "${normalizedQuery}"`);
+        }
 
-        // ... existing code ...
-        // I need to refactor the whole method slightly to lift 'profile'.
-        // To avoid big rewrite with replace_file_content, I will fetch it again or careful edit.
-        // Let's modify the Personalization Logic block to store profile in a wider scope variable.
+        // ============ Stage 0: 准备 Query 向量与个性化 ============
+        // 用标准化后的 Query 生成 Embedding（语义更清晰）
+        let queryVector = await this.embeddingService.embed(normalizedQuery);
         let userProfileData: any = null;
 
-        // --- Personalization Logic ---
         if (userId) {
             const profile = userProfileRepo.getProfile(userId);
             if (profile) {
                 userProfileData = profile.jsonProfile ? JSON.parse(profile.jsonProfile) : null;
 
                 if (profile.tasteVector && profile.tasteVector.length === config.embedding.dimensions) {
-
-                    // --- Dynamic Alpha Calculation ---
                     let alpha = 0.8;
-
-                    if (mode === 'fresh') {
-                        alpha = 1.0; // Ignore taste, pure query
-                    } else if (mode === 'familiar') {
-                        alpha = 0.4; // Strong taste bias (was 0.3, lets try 0.4)
+                    if (mode === 'fresh') alpha = 1.0;
+                    else if (mode === 'familiar') {
+                        alpha = 0.4;
                     } else {
-                        // Default Mode: Heuristic
-                        if (query.length < 5) alpha = 0.3;       // Very vague
-                        else if (query.length < 15) alpha = 0.6; // Semi-specific
+                        if (query.length < 5) alpha = 0.3;
+                        else if (query.length < 15) alpha = 0.6;
                     }
-                    // ---------------------------------
 
                     console.log(`[HybridSearch] Personalizing... Alpha: ${alpha} (Mode: ${mode})`);
 
-                    // Linear Interpolation: V = alpha * Query + (1-alpha) * Taste
                     const tasteVector = profile.tasteVector;
                     const blendVector = new Float32Array(config.embedding.dimensions);
-
                     for (let i = 0; i < config.embedding.dimensions; i++) {
                         blendVector[i] = (queryVector[i] * alpha) + (tasteVector[i] * (1 - alpha));
                     }
-
-                    queryVector = Array.from(blendVector); // Convert back to number[] if needed by repo (repo takes number[])
+                    queryVector = Array.from(blendVector);
                 }
             }
         }
-        // -----------------------------
 
-        // Search DB for broad candidates
-        const candidates = metadataRepo.searchVectors(queryVector, {
-            limit: candidateLimit
+        // ============ Stage 1: 多路互斥召回 ============
+        console.log(`[HybridSearch] Stage 1: Multi-channel recall (vector=${modeConfig.vectorLimit}, attr=${modeConfig.attributeLimit}, random=${modeConfig.randomLimit})`);
+
+        // 通道 1: 向量召回
+        const vectorCandidates = metadataRepo.searchVectors(queryVector, {
+            limit: modeConfig.vectorLimit
         });
+        const collectedIds = new Set(vectorCandidates.map(c => c.navidrome_id));
+        console.log(`[HybridSearch]   Vector channel: ${vectorCandidates.length} songs`);
 
-        console.log(`[HybridSearch] Vector Search retrieved ${candidates.length} candidates.`);
+        // 通道 2: 属性召回 (排除向量已召回 ID)
+        let attributeCandidates: SongMetadata[] = [];
+        if (modeConfig.attributeLimit > 0) {
+            // 使用清洗后的 Query 解析属性，避免杂乱符号干扰关键词匹配
+            const filters = this.parseQueryAttributes(normalizedQuery);
+            if (Object.keys(filters).length > 0) {
+                attributeCandidates = metadataRepo.searchByAttributes(
+                    filters,
+                    modeConfig.attributeLimit,
+                    Array.from(collectedIds)
+                );
+                attributeCandidates.forEach(c => collectedIds.add(c.navidrome_id));
+                console.log(`[HybridSearch]   Attribute channel: ${attributeCandidates.length} songs (filters: ${JSON.stringify(filters)})`);
+            } else {
+                console.log(`[HybridSearch]   Attribute channel: skipped (no parseable filters)`);
+            }
+        }
 
-        // --- Inject Starred Songs (Personalization V2) ---
-        if (userId) {
+        // 通道 3: 随机探索 (排除前两通道 ID)
+        let randomCandidates: SongMetadata[] = [];
+        if (modeConfig.randomLimit > 0) {
+            randomCandidates = metadataRepo.getRandomSongs(
+                modeConfig.randomLimit,
+                Array.from(collectedIds)
+            );
+            randomCandidates.forEach(c => collectedIds.add(c.navidrome_id));
+            console.log(`[HybridSearch]   Random channel: ${randomCandidates.length} songs`);
+        }
+
+        // 合并所有通道
+        const allCandidates: any[] = [
+            ...vectorCandidates,
+            ...attributeCandidates.map(c => ({ ...c, distance: 0.5, _source: 'attribute_recall' })),
+            ...randomCandidates.map(c => ({ ...c, distance: 0.8, _source: 'random_exploration' }))
+        ];
+
+        console.log(`[HybridSearch] Stage 1 total: ${allCandidates.length} unique candidates`);
+
+        // ============ 红心歌曲注入 (限制比例) ============
+        if (userId && modeConfig.starredInjectionRatio > 0) {
             try {
-                // 1. Get Starred Songs with Vectors
                 const starredSongs = await userProfileService.getStarredSongsWithVectors(userId);
-
                 if (starredSongs.length > 0) {
-                    // 2. Semantic Filter: Calculate similarity with current Query Vector
+                    const maxInject = Math.floor(allCandidates.length * modeConfig.starredInjectionRatio);
                     const relevantStarred = starredSongs.map(s => {
-                        // Calculate distance (1 - Cosine Similarity) to match sqlite-vec behavior
-                        // Note: We use the *blended* queryVector if personalization was active, which matches intent + taste.
                         const sim = this.cosineSimilarity(queryVector, s.vector);
                         return { ...s, distance: 1 - sim, _source: 'starred_injection' };
                     })
-                        .filter(s => s.distance < 0.65) // Loose threshold to allow variety (0.65 distance ~ 0.35 similarity)
+                        .filter(s => s.distance < 0.65)
                         .sort((a, b) => a.distance - b.distance)
-                        .slice(0, Math.floor(candidateLimit * 0.25)); // Inject up to 25%
+                        .slice(0, maxInject);
 
-                    console.log(`[HybridSearch] Injected ${relevantStarred.length} relevant starred songs.`);
+                    console.log(`[HybridSearch] Starred injection: ${relevantStarred.length}/${maxInject} max (ratio: ${modeConfig.starredInjectionRatio})`);
 
-                    // 3. Merge & Dedup (Mark organic matches as starred too)
-                    const existingMap = new Map(candidates.map((c, i) => [c.navidrome_id, i]));
-
+                    const existingMap = new Map(allCandidates.map((c, i) => [c.navidrome_id, i]));
                     for (const s of relevantStarred) {
                         if (existingMap.has(s.navidrome_id)) {
-                            // Already in list: Mark as starred (Organic)
                             const idx = existingMap.get(s.navidrome_id)!;
-                            (candidates[idx] as any)._source = 'starred_organic';
-                            // Optional: Bump score?
+                            (allCandidates[idx] as any)._source = 'starred_organic';
                         } else {
-                            // Not in list: Inject at top
-                            candidates.unshift(s);
-                            // Update map in case of duplicates within injected list (unlikely due to set logic in service but good hygiene)
-                            existingMap.set(s.navidrome_id, 0);
+                            allCandidates.push(s);
                         }
                     }
                 }
@@ -131,30 +168,31 @@ export class HybridSearchService {
                 console.error("[HybridSearch] Failed to inject starred songs:", e);
             }
         }
-        // -------------------------------------------------
 
-        // --- Archive candidates for analysis ---
-        this.archiveCurationPayload(query, candidates, options.mode || 'default', userId || 'anonymous');
-        // ---------------------------------------
-
-        if (candidates.length === 0) {
-            return [];
+        // ============ Stage 2: MMR 多样性预筛 ============
+        let candidatesForLLM = allCandidates;
+        if (allCandidates.length > modeConfig.mmrTargetCount) {
+            console.log(`[HybridSearch] Stage 2: MMR rerank (${allCandidates.length} → ${modeConfig.mmrTargetCount}, λ=${modeConfig.mmrLambda})`);
+            candidatesForLLM = this.mmrRerank(allCandidates, queryVector, modeConfig.mmrTargetCount, modeConfig.mmrLambda);
+        } else {
+            console.log(`[HybridSearch] Stage 2: Skipped (${allCandidates.length} <= ${modeConfig.mmrTargetCount})`);
         }
 
-        // 2. LLM Curation (Emotional Stage)
+        // Archive
+        this.archiveCurationPayload(normalizedQuery, candidatesForLLM, mode, userId || 'anonymous');
+
+        if (candidatesForLLM.length === 0) return [];
+
+        // ============ Stage 3: LLM 策展 ============
         if (useAI) {
-            console.log(`[HybridSearch] Sending to AI for curation (Target: ~${finalLimit} songs)...`);
+            console.log(`[HybridSearch] Stage 3: LLM curation (${candidatesForLLM.length} candidates → ~${finalLimit} songs, temp=${modeConfig.temperature})`);
             const aiService = AIFactory.getService();
 
-            // Call the specialized curation method
-            // Note: We need to implement curatePlaylist in IAIService/GeminiService
-            // For now, let's assume it exists or use rerankSongs if distinct
-
-            // Casting to any or updating interface in next step
             let curated;
             try {
-                // Pass userProfileData to curation
-                curated = await (aiService as any).curatePlaylist(query, candidates, finalLimit, userProfileData);
+                curated = await (aiService as any).curatePlaylist(normalizedQuery, candidatesForLLM, finalLimit, userProfileData, {
+                    temperature: modeConfig.temperature
+                });
             } catch (e: any) {
                 console.error("[HybridSearch] Critical Error calling AI:", e);
                 return [];
@@ -162,17 +200,14 @@ export class HybridSearchService {
 
             if (curated && curated.tracks) {
                 console.log(`[HybridSearch] AI selected ${curated.tracks.length} songs.`);
-                // --- Generate Automated Markdown Report ---
-                this.generateMarkdownReport(query, curated, options.mode || 'default', aiService);
-                // ------------------------------------------
+                this.generateMarkdownReport(normalizedQuery, curated, mode, aiService);
                 return curated;
             } else {
                 console.warn(`[HybridSearch] AI returned invalid format.`);
                 return [];
             }
         } else {
-            // Fallback: Just return vector results (Top N)
-            return candidates.slice(0, finalLimit).map(c => ({
+            return candidatesForLLM.slice(0, finalLimit).map(c => ({
                 id: c.navidrome_id,
                 title: c.title,
                 artist: c.artist,
@@ -181,8 +216,164 @@ export class HybridSearchService {
         }
     }
 
+    // ============ 辅助方法 ============
+
     /**
-     * 将发送给 AI 的数据归档到本地文件，方便分析不同 LLM 的表现
+     * 预处理 Query：剥离 Vibe Tag 带来的冗余信息 (如 "(Mid)"、"⚡"、数字统计等)
+     * 让 Query 更纯净，利于 Embedding 和 LLM 处理
+     */
+    private normalizeQuery(query: string): string {
+        if (!query) return query;
+
+        let q = query;
+
+        // 1. 移除 emoji
+        // 使用常见的 emoji 正则剔除
+        q = q.replace(/[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|\u2580-\u27BF|\uD83E[\uDD10-\uDDFF]/g, '');
+
+        // 2. 移除括号及括号内的内容 (如 "(Mid)", "(14853)")
+        q = q.replace(/\s*\([^)]+\)\s*/g, ' ');
+
+        // 3. 移除特殊符号，但保留常见文字和标点
+        q = q.replace(/[#*&^%$@!~`+=\[\]{}<>/\\]/g, ' ');
+
+        // 4. 将多余的空格、逗号、顿号等替换为单个空格
+        q = q.replace(/[，、。；_|\s]+/g, ' ');
+
+        return q.trim();
+    }
+
+    /**
+     * 从自然语言 Query 中提取结构化属性过滤条件 (基于关键词匹配，不依赖 LLM)
+     */
+    private parseQueryAttributes(query: string): Record<string, any> {
+        const filters: Record<string, any> = {};
+        const q = query.toLowerCase();
+
+        // 能量级别
+        if (/(?:轻柔|安静|平静|舒缓|催眠|放松|quiet|calm|relax|gentle|soft)/i.test(q)) {
+            filters.energy_range = [1, 4];
+        } else if (/(?:嗨|炸|燃|high.?energy|explosive|intense|激烈|澎湃)/i.test(q)) {
+            filters.energy_range = [7, 10];
+        } else if (/(?:中等|moderate|适中)/i.test(q)) {
+            filters.energy_range = [4, 7];
+        }
+
+        // 律动
+        if (/(?:慢|静止|ambient|环境|static)/i.test(q)) filters.tempo_vibe = 'Static';
+        else if (/(?:漂浮|飘|drifting|chill)/i.test(q)) filters.tempo_vibe = 'Drifting';
+        else if (/(?:快|driving|推进|节奏感)/i.test(q)) filters.tempo_vibe = 'Driving';
+        else if (/(?:爆发|爆裂|explosive)/i.test(q)) filters.tempo_vibe = 'Explosive';
+
+        // 音色
+        if (/(?:电子|electronic|synth|合成)/i.test(q)) filters.timbre_texture = 'Electronic';
+        else if (/(?:原声|acoustic|organic|木吉他|钢琴)/i.test(q)) filters.timbre_texture = 'Organic';
+        else if (/(?:金属|metallic|metal)/i.test(q)) filters.timbre_texture = 'Metallic';
+        else if (/(?:复古|vintage|grainy|颗粒)/i.test(q)) filters.timbre_texture = 'Grainy';
+
+        // 语言
+        if (/(?:中文|国语|华语|cn)/i.test(q)) filters.language = 'CN';
+        else if (/(?:英文|英语|english|en)/i.test(q)) filters.language = 'EN';
+        else if (/(?:日文|日语|日本|jp|japanese)/i.test(q)) filters.language = 'JP';
+        else if (/(?:韩文|韩语|韩国|kr|korean)/i.test(q)) filters.language = 'KR';
+        else if (/(?:纯音乐|instrumental)/i.test(q)) filters.language = 'Instrumental';
+
+        return filters;
+    }
+
+    /**
+     * MMR (Maximal Marginal Relevance) 多样性重排
+     * 每次选择一首与 Query 最相关但与已选集合最不同的歌曲
+     * 使用结构化标签重叠度作为歌曲间相似度的代理（避免 N² 级向量 IO）
+     */
+    private mmrRerank(
+        candidates: any[],
+        queryVector: number[],
+        targetCount: number,
+        lambda: number = 0.5
+    ): any[] {
+        if (candidates.length <= targetCount) return candidates;
+
+        // 预计算每首候选与 Query 的相似度 (基于 distance 字段)
+        const querySims = candidates.map(c => {
+            const dist = c.distance ?? 0.5;
+            return 1 - Math.min(dist, 1); // similarity: 0-1
+        });
+
+        // 为每首歌生成标签指纹，用于计算歌曲间相似度
+        const fingerprints = candidates.map(c => ({
+            artist: (c.artist || '').toLowerCase(),
+            mood: (c.mood || '').toLowerCase(),
+            tempo_vibe: (c.tempo_vibe || ''),
+            timbre_texture: (c.timbre_texture || ''),
+            spectrum: (c.spectrum || ''),
+            energy: c.energy_level ?? 5,
+        }));
+
+        const selected: number[] = [];
+        const remaining = new Set(candidates.map((_, i) => i));
+
+        // 选第一首：纯相关性最高的
+        let bestFirst = 0;
+        let bestFirstSim = -1;
+        for (const idx of remaining) {
+            if (querySims[idx] > bestFirstSim) {
+                bestFirstSim = querySims[idx];
+                bestFirst = idx;
+            }
+        }
+        selected.push(bestFirst);
+        remaining.delete(bestFirst);
+
+        // 迭代选择
+        while (selected.length < targetCount && remaining.size > 0) {
+            let bestIdx = -1;
+            let bestScore = -Infinity;
+
+            for (const idx of remaining) {
+                const relevance = querySims[idx];
+
+                // 计算与已选集合中最相似的歌曲的标签重叠度
+                let maxSimToSelected = 0;
+                const fpA = fingerprints[idx];
+                for (const selIdx of selected) {
+                    const fpB = fingerprints[selIdx];
+                    let overlap = 0;
+                    let total = 5; // 5 个可比较维度
+
+                    // 同 artist 视为高度重叠
+                    if (fpA.artist && fpA.artist === fpB.artist) overlap += 1.5; // 额外权重
+                    // 结构化标签精确匹配
+                    if (fpA.tempo_vibe && fpA.tempo_vibe === fpB.tempo_vibe) overlap += 1;
+                    if (fpA.timbre_texture && fpA.timbre_texture === fpB.timbre_texture) overlap += 1;
+                    if (fpA.spectrum && fpA.spectrum === fpB.spectrum) overlap += 1;
+                    // 能量接近度 (差值 ≤ 1 视为相似)
+                    if (Math.abs(fpA.energy - fpB.energy) <= 1) overlap += 1;
+
+                    const sim = overlap / (total + 1.5); // 归一化到 0-1
+                    maxSimToSelected = Math.max(maxSimToSelected, sim);
+                }
+
+                const mmrScore = lambda * relevance - (1 - lambda) * maxSimToSelected;
+                if (mmrScore > bestScore) {
+                    bestScore = mmrScore;
+                    bestIdx = idx;
+                }
+            }
+
+            if (bestIdx >= 0) {
+                selected.push(bestIdx);
+                remaining.delete(bestIdx);
+            } else {
+                break;
+            }
+        }
+
+        return selected.map(idx => candidates[idx]);
+    }
+
+    /**
+     * 将发送给 AI 的数据归档到本地文件
      */
     private archiveCurationPayload(query: string, candidates: any[], mode: string, userId: string) {
         try {
@@ -207,7 +398,7 @@ export class HybridSearchService {
                     mood: c.mood,
                     tags: c.tags,
                     distance: c.distance,
-                    source: c._source || 'vector_search' // Capture Source
+                    source: c._source || 'vector_search'
                 }))
             };
 
@@ -280,7 +471,7 @@ ${JSON.stringify(result, null, 2)}
             normA += vecA[i] * vecA[i];
             normB += vecB[i] * vecB[i];
         }
-        return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB) + 1e-9); // 1e-9 to prevent div by zero
+        return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB) + 1e-9);
     }
 }
 

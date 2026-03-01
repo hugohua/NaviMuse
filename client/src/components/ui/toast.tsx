@@ -53,7 +53,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                         className={`toast-root ${t.variant || 'default'}`}
                         open={t.open}
                         onOpenChange={(open) => handleOpenChange(t.id, open)}
-                        duration={t.duration || 4000}
+                        duration={t.duration || 2000}
                     >
                         <ToastPrimitive.Title className="toast-title">
                             {t.title}

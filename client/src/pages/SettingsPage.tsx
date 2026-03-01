@@ -181,6 +181,25 @@ export const SettingsPage: React.FC = () => {
                             </div>
                             <div className="provider-check"><CheckCircle size={20} /></div>
                         </label>
+
+                        <label className={`provider-option ${provider === 'local' ? 'active' : ''}`}>
+                            <input
+                                type="radio"
+                                name="provider"
+                                value="local"
+                                checked={provider === 'local'}
+                                onChange={(e) => handleProviderChange(e.target.value)}
+                                className="hidden"
+                            />
+                            <div className="provider-icon">
+                                <Database size={24} />
+                            </div>
+                            <div className="provider-info">
+                                <div className="provider-name">本地 Gemini (Local)</div>
+                                <div className="provider-desc">本地 Gemini 服务</div>
+                            </div>
+                            <div className="provider-check"><CheckCircle size={20} /></div>
+                        </label>
                     </div>
                 </div>
 
@@ -204,7 +223,7 @@ export const SettingsPage: React.FC = () => {
                                 </option>
                             ))}
                         </select>
-                    ) : (
+                    ) : provider === 'aliyun' ? (
                         <select
                             value={model}
                             onChange={(e) => setModel(e.target.value)}
@@ -214,6 +233,15 @@ export const SettingsPage: React.FC = () => {
                             <option value="qwen-max">Qwen Max</option>
                             <option value="qwen-turbo">Qwen Turbo</option>
                             <option value="deepseek-v3.2">deepseek-v3.2</option>
+                        </select>
+                    ) : (
+                        <select
+                            value={model}
+                            onChange={(e) => setModel(e.target.value)}
+                            className="settings-select"
+                        >
+                            <option value="gemini-3.1-pro-high">gemini-3.1-pro-high</option>
+                            <option value="gemini-3-flash">gemini-3-flash)</option>
                         </select>
                     )}
 
