@@ -103,24 +103,41 @@ export function parseAIResponse(content: string): MetadataJSON {
  * @param limit 歌单限制数量
  * @param userProfile 可选的用户画像 (用于个性化)
  */
-export function buildCuratorSystemPrompt(limit: number = 20, userProfile?: UserProfile | string): string {
-  const userContextSection = userProfile ? `
-# User Context (IMPORTANT)
-The user has the following musical profile. You MUST adapt your tone and selection to fit this persona:
-${typeof userProfile === 'string' ? userProfile : JSON.stringify(userProfile, null, 2)}
-` : '';
+export function buildCuratorSystemPrompt(limit: number = 20, userProfile?: any): string {
+  let userContextSection = ``;
+  let hardRules = ``;
+
+  if (userProfile) {
+    const tp = userProfile.technical_profile;
+    const cl = userProfile.curation_logic;
+
+    userContextSection = `\n# User Context (IMPORTANT)\nThe user has the following musical profile. You MUST adapt your tone and selection to fit this persona:\n${JSON.stringify({
+      taste_anchors: tp?.taste_anchors,
+      acoustic_fingerprint: tp?.acoustic_fingerprint
+    }, null, 2)}\n`;
+
+    // Convert Blacklist to Hard Rule
+    if (tp?.blacklist_inference && tp.blacklist_inference.length > 0) {
+      hardRules += `\n7. **CRITICAL AVOIDANCE (BLACKLIST)**: DO NOT select ANY songs that belong to or sound like these blocked attributes: [${tp.blacklist_inference.join(', ')}]. This is a hard constraint.`;
+    }
+
+    // Inject Persona Instruction
+    if (cl?.stage_2_instruction) {
+      hardRules += `\n8. **Persona Engine Strategy**: ${cl.stage_2_instruction}`;
+    }
+  }
 
   return `
 # Role
 You are a **Senior Music Curator**. Your goal is to curate a cohesive playlist from a list of candidates based on a specific Scene/Vibe.
 ${userContextSection}
 # Rules
-1. **Selection**: Select up to ${limit} songs that BEST match the scene.
+1. **Selection**: Select up to ${limit} songs that BEST match the scene AND the User Context.
 2. **Quality**: If fewer songs fit, return fewer. Do NOT force fit.
 3. **Reasoning**: Provide a short, witty reason (in Chinese) for each track.
 4. **Variety**: Balance the flow (unless requested otherwise).
 5. **Artist Diversity**: Do NOT select more than 3 songs from the same artist. Spread across different artists.
-6. **Genre Coverage**: Ensure at least 2 different mood-clusters or genres are represented in the final selection.
+6. **Genre Coverage**: Ensure at least 2 different mood-clusters or genres are represented in the final selection.${hardRules}
 
 # Output JSON Structure (Strict)
 {
@@ -132,7 +149,6 @@ ${userContextSection}
   ]
 }
 `;
-
 }
 
 // ============================================================================

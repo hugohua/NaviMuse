@@ -16,15 +16,16 @@ interface RecallConfig {
     attributeLimit: number;
     randomLimit: number;
     starredInjectionRatio: number; // 红心注入上限比例
+    mostPlayedInjectionRatio: number; // 高频播放注入上限比例
     mmrLambda: number; // 0=纯多样性, 1=纯相关性
     mmrTargetCount: number; // MMR 筛出的目标数量
     temperature: number; // LLM 策展 temperature
 }
 
 const MODE_CONFIGS: Record<string, RecallConfig> = {
-    default: { vectorLimit: 80, attributeLimit: 30, randomLimit: 20, starredInjectionRatio: 0.10, mmrLambda: 0.5, mmrTargetCount: 100, temperature: 1 },
-    familiar: { vectorLimit: 80, attributeLimit: 20, randomLimit: 0, starredInjectionRatio: 0.20, mmrLambda: 0.7, mmrTargetCount: 100, temperature: 1 },
-    fresh: { vectorLimit: 100, attributeLimit: 40, randomLimit: 40, starredInjectionRatio: 0.00, mmrLambda: 0.3, mmrTargetCount: 100, temperature: 1 },
+    default: { vectorLimit: 80, attributeLimit: 30, randomLimit: 20, starredInjectionRatio: 0.10, mostPlayedInjectionRatio: 0.10, mmrLambda: 0.5, mmrTargetCount: 100, temperature: 1 },
+    familiar: { vectorLimit: 80, attributeLimit: 20, randomLimit: 0, starredInjectionRatio: 0.20, mostPlayedInjectionRatio: 0.15, mmrLambda: 0.7, mmrTargetCount: 100, temperature: 1 },
+    fresh: { vectorLimit: 100, attributeLimit: 40, randomLimit: 40, starredInjectionRatio: 0.00, mostPlayedInjectionRatio: 0.00, mmrLambda: 0.3, mmrTargetCount: 100, temperature: 1 },
 };
 
 export class HybridSearchService {
@@ -169,13 +170,53 @@ export class HybridSearchService {
             }
         }
 
+        // ============ 高频播放歌曲注入 (类似红心注入) ============
+        if (userId && modeConfig.mostPlayedInjectionRatio > 0) {
+            try {
+                const mostPlayedSongs = await userProfileService.getMostPlayedWithVectors();
+                if (mostPlayedSongs.length > 0) {
+                    const maxInject = Math.floor(allCandidates.length * modeConfig.mostPlayedInjectionRatio);
+                    const existingIds = new Set(allCandidates.map(c => c.navidrome_id));
+
+                    // 过滤掉已存在的，计算相关性，取 Top N
+                    const relevantMostPlayed = mostPlayedSongs
+                        .filter(s => !existingIds.has(s.navidrome_id)) // 去重
+                        .map(s => {
+                            const sim = this.cosineSimilarity(queryVector, s.vector);
+                            return { ...s, distance: 1 - sim, _source: 'most_played_injection' };
+                        })
+                        .filter(s => s.distance < 0.70) // 比红心通道宽松一些 (0.70 vs 0.65)
+                        .sort((a, b) => a.distance - b.distance)
+                        .slice(0, maxInject);
+
+                    console.log(`[HybridSearch] Most-played injection: ${relevantMostPlayed.length}/${maxInject} max (ratio: ${modeConfig.mostPlayedInjectionRatio})`);
+
+                    for (const s of relevantMostPlayed) {
+                        allCandidates.push(s);
+                    }
+                }
+            } catch (e) {
+                console.error("[HybridSearch] Failed to inject most-played songs:", e);
+            }
+        }
+
+        // [New Phase] Stage 1.8: User Profile Blacklist Interception
+        let filteredCandidates = allCandidates;
+        const tp = userProfileData?.technical_profile;
+        if (tp && tp.blacklist_inference && tp.blacklist_inference.length > 0) {
+            console.log(`[HybridSearch] Stage 1.8: Applying Blacklist Interception [${tp.blacklist_inference.join(', ')}]`);
+            const beforeCount = filteredCandidates.length;
+            filteredCandidates = this.applyBlacklistFilter(filteredCandidates, tp.blacklist_inference);
+            console.log(`[HybridSearch] Stage 1.8: Interception removed ${beforeCount - filteredCandidates.length} songs.`);
+        }
+
         // ============ Stage 2: MMR 多样性预筛 ============
-        let candidatesForLLM = allCandidates;
-        if (allCandidates.length > modeConfig.mmrTargetCount) {
-            console.log(`[HybridSearch] Stage 2: MMR rerank (${allCandidates.length} → ${modeConfig.mmrTargetCount}, λ=${modeConfig.mmrLambda})`);
-            candidatesForLLM = this.mmrRerank(allCandidates, queryVector, modeConfig.mmrTargetCount, modeConfig.mmrLambda);
+        let candidatesForLLM = filteredCandidates;
+        if (filteredCandidates.length > modeConfig.mmrTargetCount) {
+            console.log(`[HybridSearch] Stage 2: MMR rerank (${filteredCandidates.length} → ${modeConfig.mmrTargetCount}, λ=${modeConfig.mmrLambda})`);
+            candidatesForLLM = this.mmrRerank(filteredCandidates, queryVector, modeConfig.mmrTargetCount, modeConfig.mmrLambda);
         } else {
-            console.log(`[HybridSearch] Stage 2: Skipped (${allCandidates.length} <= ${modeConfig.mmrTargetCount})`);
+            console.log(`[HybridSearch] Stage 2: Skipped (${filteredCandidates.length} <= ${modeConfig.mmrTargetCount})`);
         }
 
         // Archive
@@ -472,6 +513,34 @@ ${JSON.stringify(result, null, 2)}
             normB += vecB[i] * vecB[i];
         }
         return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB) + 1e-9);
+    }
+    /**
+     * 根据用户画像黑名单，强行过滤掉候选池中的歌曲
+     */
+    private applyBlacklistFilter(candidates: any[], blacklist: string[]): any[] {
+        if (!blacklist || blacklist.length === 0) return candidates;
+
+        const lowerBlacklist = blacklist.map(b => b.toLowerCase());
+
+        return candidates.filter(song => {
+            // 将歌曲的核心元数据拍扁成字符串进行盲切匹配
+            const searchPool = [
+                song.title,
+                song.artist,
+                song.genre,
+                song.mood,
+                song.timbre_texture,
+                typeof song.tags === 'string' ? song.tags : (Array.isArray(song.tags) ? song.tags.join(' ') : '')
+            ].join(' ').toLowerCase();
+
+            // 如果该歌触发了任意一个黑名单词，剔除
+            for (const bWord of lowerBlacklist) {
+                if (searchPool.includes(bWord)) {
+                    return false;
+                }
+            }
+            return true;
+        });
     }
 }
 

@@ -1,11 +1,15 @@
-
 import { navidromeClient } from '../navidrome';
 import { userProfileRepo, metadataRepo } from '../../db';
 import { config } from '../../config';
 import { recommendationService } from './RecommendationService';
 import { EmbeddingService } from '../ai/EmbeddingService';
+import { redisConnection } from '../queue/metadataQueue';
 
 const embeddingService = new EmbeddingService();
+
+const CACHE_TTL = 1800; // 30 分钟 (秒)
+const CACHE_KEY_STARRED = 'navimuse:cache:starred_with_vectors';
+const CACHE_KEY_MOST_PLAYED = 'navimuse:cache:most_played_with_vectors';
 
 export class UserProfileService {
 
@@ -116,8 +120,25 @@ export class UserProfileService {
 
             console.log(`[UserProfile] Final Selection for AI Analysis: ${finalSelection.length} songs.`);
 
+            // [Critical] Enrich songs with acoustic features from smart_metadata DB
+            // Navidrome API only provides title/artist/genre/playCount.
+            // We need energy_level, mood, tempo_vibe, timbre_texture from our local analysis.
+            const enrichedSongs = finalSelection.map(song => {
+                const metadata = metadataRepo.get(song.id);
+                if (metadata) {
+                    return {
+                        ...song,
+                        energy_level: metadata.energy_level,
+                        mood: metadata.mood,
+                        tempo_vibe: metadata.tempo_vibe,
+                        timbre_texture: metadata.timbre_texture,
+                    };
+                }
+                return song;
+            });
+
             // recommendationService.analyzeUserProfile handles `songsCSV` internally but we pass raw songs.
-            userProfileObj = await recommendationService.analyzeUserProfile(finalSelection);
+            userProfileObj = await recommendationService.analyzeUserProfile(enrichedSongs);
             console.log(`[UserProfile] AI Analysis Success. Title: ${userProfileObj.display_card.title}`);
 
             // [New] Vector Anchor Integration
@@ -176,6 +197,9 @@ export class UserProfileService {
 
         console.log(`[UserProfile] Profile saved for ${userId}.`);
 
+        // 画像更新后主动清除搜索注入缓存，确保下次搜索拉取最新数据
+        await this.invalidateSearchCache();
+
         return userProfileObj; // Return Object directly as before (it was parsing before return)
     }
 
@@ -201,29 +225,105 @@ export class UserProfileService {
 
     /**
      * 获取带向量数据的红心歌曲 (用于混合搜索)
+     * Redis 缓存: TTL 30 分钟
      */
     async getStarredSongsWithVectors(userId: string = 'admin'): Promise<any[]> {
-        // 1. Fetch Starred Songs from Navidrome
+        // 1. Try Redis Cache
+        try {
+            const cached = await redisConnection.get(CACHE_KEY_STARRED);
+            if (cached) {
+                const parsed = JSON.parse(cached);
+                console.log(`[UserProfile] Starred songs cache HIT (${parsed.length} songs)`);
+                return parsed;
+            }
+        } catch (e) {
+            // Redis down → fallback to direct fetch
+        }
+
+        // 2. Cache MISS → Fetch from Navidrome + DB
+        console.log(`[UserProfile] Starred songs cache MISS, fetching from Navidrome...`);
         const starredSongs = await navidromeClient.getStarred();
 
         if (starredSongs.length === 0) return [];
 
-        // 2. Attach Vectors from DB
         const songsWithVectors = [];
         for (const song of starredSongs) {
             const vector = userProfileRepo.getSongVector(song.id);
             if (vector) {
-                // Attach vector to song object (keep original properties)
                 songsWithVectors.push({
                     ...song,
-                    navidrome_id: song.id, // Ensure consistent naming for HybridSearch
-                    vector: Array.from(vector) // Convert Float32Array to number[] for easier math later
+                    navidrome_id: song.id,
+                    vector: Array.from(vector)
                 });
             }
         }
 
         console.log(`[UserProfile] Found ${songsWithVectors.length} starred songs with vectors available.`);
+
+        // 3. Write to Redis Cache
+        try {
+            await redisConnection.setex(CACHE_KEY_STARRED, CACHE_TTL, JSON.stringify(songsWithVectors));
+        } catch (e) { /* Redis write failure is non-fatal */ }
+
         return songsWithVectors;
+    }
+
+    /**
+     * 获取带向量数据的高频播放歌曲 (用于混合搜索注入)
+     * Redis 缓存: TTL 30 分钟
+     * @param albumLimit 拉取的专辑数量上限 (每专辑约含 10+ 首歌)
+     */
+    async getMostPlayedWithVectors(albumLimit: number = 10): Promise<any[]> {
+        // 1. Try Redis Cache
+        try {
+            const cached = await redisConnection.get(CACHE_KEY_MOST_PLAYED);
+            if (cached) {
+                const parsed = JSON.parse(cached);
+                console.log(`[UserProfile] Most-played songs cache HIT (${parsed.length} songs)`);
+                return parsed;
+            }
+        } catch (e) {
+            // Redis down → fallback to direct fetch
+        }
+
+        // 2. Cache MISS → Fetch from Navidrome + DB
+        console.log(`[UserProfile] Most-played songs cache MISS, fetching from Navidrome...`);
+        const mostPlayedSongs = await navidromeClient.getMostPlayed(albumLimit);
+
+        if (mostPlayedSongs.length === 0) return [];
+
+        const songsWithVectors = [];
+        for (const song of mostPlayedSongs) {
+            const vector = userProfileRepo.getSongVector(song.id);
+            if (vector) {
+                songsWithVectors.push({
+                    ...song,
+                    navidrome_id: song.id,
+                    vector: Array.from(vector)
+                });
+            }
+        }
+
+        console.log(`[UserProfile] Found ${songsWithVectors.length} most-played songs with vectors available.`);
+
+        // 3. Write to Redis Cache
+        try {
+            await redisConnection.setex(CACHE_KEY_MOST_PLAYED, CACHE_TTL, JSON.stringify(songsWithVectors));
+        } catch (e) { /* Redis write failure is non-fatal */ }
+
+        return songsWithVectors;
+    }
+
+    /**
+     * 主动清除搜索注入缓存 (在画像更新或红心变化时调用)
+     */
+    async invalidateSearchCache(): Promise<void> {
+        try {
+            await redisConnection.del(CACHE_KEY_STARRED, CACHE_KEY_MOST_PLAYED);
+            console.log(`[UserProfile] Search injection caches invalidated.`);
+        } catch (e) {
+            console.warn(`[UserProfile] Failed to invalidate caches:`, e);
+        }
     }
 }
 
